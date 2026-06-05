@@ -23,6 +23,20 @@ import {
 } from "./ui/sidebar"
 import { TooltipProvider } from "./ui/tooltip"
 
+function showNavigationLoading(event: React.MouseEvent<HTMLAnchorElement>) {
+  if (
+    event.defaultPrevented ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return
+  }
+
+  window.dispatchEvent(new Event("app:navigation-start"))
+}
+
 const data = {
   navMain: [
     { 
@@ -82,7 +96,7 @@ export function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <a href="/dashboard">
+                <a href="/dashboard" onClick={showNavigationLoading}>
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Command className="size-4" />
                   </div>

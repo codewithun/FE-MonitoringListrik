@@ -1,9 +1,10 @@
 "use client"
 
-import { Fragment, type ReactNode } from "react"
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { SpinnerCustom } from "@/components/ui/spinner"
 import type { SessionUser } from "@/lib/auth-constants"
 import {
   Breadcrumb,
@@ -91,6 +92,58 @@ export function SectionShellClient({
 }) {
   const pathname = usePathname()
   const breadcrumbs = getBreadcrumbItems(pathname)
+  const previousPathname = useRef(pathname)
+  const hideLoadingTimeout = useRef<number | null>(null)
+  const [isRouteSettling, setIsRouteSettling] = useState(false)
+
+  useEffect(() => {
+    const showLoading = () => {
+      if (hideLoadingTimeout.current) {
+        window.clearTimeout(hideLoadingTimeout.current)
+      }
+
+      setIsRouteSettling(true)
+    }
+
+    window.addEventListener("app:navigation-start", showLoading)
+
+    return () => {
+      window.removeEventListener("app:navigation-start", showLoading)
+
+      if (hideLoadingTimeout.current) {
+        window.clearTimeout(hideLoadingTimeout.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) {
+      if (isRouteSettling) {
+        hideLoadingTimeout.current = window.setTimeout(() => {
+          setIsRouteSettling(false)
+        }, 300)
+      }
+
+      return
+    }
+
+    previousPathname.current = pathname
+    setIsRouteSettling(true)
+
+    if (hideLoadingTimeout.current) {
+      window.clearTimeout(hideLoadingTimeout.current)
+    }
+
+    hideLoadingTimeout.current = window.setTimeout(() => {
+      setIsRouteSettling(false)
+    }, 300)
+
+    return () => {
+      if (hideLoadingTimeout.current) {
+        window.clearTimeout(hideLoadingTimeout.current)
+      }
+    }
+  }, [pathname, isRouteSettling])
 
   return (
     <SidebarProvider>
@@ -123,7 +176,14 @@ export function SectionShellClient({
             </Breadcrumb>
           </div>
         </header>
-        {children}
+        <div className="relative flex flex-1 flex-col">
+          {isRouteSettling ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+              <SpinnerCustom />
+            </div>
+          ) : null}
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

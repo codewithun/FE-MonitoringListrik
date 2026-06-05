@@ -20,6 +20,20 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
+function showNavigationLoading(event: React.MouseEvent<HTMLAnchorElement>) {
+  if (
+    event.defaultPrevented ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return
+  }
+
+  window.dispatchEvent(new Event("app:navigation-start"))
+}
+
 export function NavMain({
   items,
   activePath,
@@ -58,7 +72,7 @@ export function NavMain({
                   activePath === item.url || activePath.startsWith(`${item.url}/`)
                 }
               >
-                <Link href={item.url}>
+                <Link href={item.url} onClick={showNavigationLoading}>
                   <item.icon />
                   <span>{item.title}</span>
                 </Link>
@@ -76,7 +90,10 @@ export function NavMain({
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild>
-                            <Link href={subItem.url}>
+                            <Link
+                              href={subItem.url}
+                              onClick={showNavigationLoading}
+                            >
                               <span>{subItem.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
