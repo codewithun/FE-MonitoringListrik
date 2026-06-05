@@ -288,10 +288,7 @@ export default function Page() {
           await Promise.all([
             apiRequest<unknown>("/api/rumah"),
             apiRequest<unknown>("/api/perangkat"),
-            apiRequest<unknown>("/api/data-listrik", {
-              method: "POST",
-              body: JSON.stringify({}),
-            }),
+            apiRequest<unknown>("/api/data-listrik/latest"),
             apiRequest<unknown>("/api/relay-state"),
           ])
 
@@ -345,7 +342,10 @@ export default function Page() {
   const latestRows = [...electricityRows].reverse().slice(0, 10)
 
   const currentRelayStatus =
-    relayStates[selectedDevice?.id] ?? selectedDevice?.relayStatus ?? "OFF"
+    relayStates[selectedDevice?.deviceCode] ??
+    relayStates[selectedDevice?.id] ??
+    selectedDevice?.relayStatus ??
+    "OFF"
 
   const metrics = useMemo(
     () => [
@@ -406,6 +406,7 @@ export default function Page() {
     setRelayStates((prev) => ({
       ...prev,
       [selectedDevice.id]: nextStatus,
+      [selectedDevice.deviceCode]: nextStatus,
     }))
 
     try {
@@ -426,6 +427,7 @@ export default function Page() {
       setRelayStates((prev) => ({
         ...prev,
         [selectedDevice.id]: currentRelayStatus,
+        [selectedDevice.deviceCode]: currentRelayStatus,
       }))
     }
   }

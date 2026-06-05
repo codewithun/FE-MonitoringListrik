@@ -367,19 +367,19 @@ export default function Page() {
     setCurrentPage(1)
   }
 
-  async function handleToggleRelay(id: string, checked: boolean) {
+  async function handleToggleRelay(device: DeviceRow, checked: boolean) {
     const nextStatus: RelayStatus = checked ? "ON" : "OFF"
 
     setDeviceRows((current) =>
-      current.map((device) =>
-        device.id === id
+      current.map((item) =>
+        item.id === device.id
           ? {
-              ...device,
+              ...item,
               relayStatus: nextStatus,
               lastUpdate: "Baru saja",
-              powerW: checked ? Math.max(device.powerW, 80) : 0,
+              powerW: checked ? Math.max(item.powerW, 80) : 0,
             }
-          : device
+          : item
       )
     )
 
@@ -387,18 +387,10 @@ export default function Page() {
       await apiRequest("/api/relay-control", {
         method: "POST",
         body: JSON.stringify({
-          id,
-          device_id: id,
+          id: device.id,
+          deviceId: device.deviceCode,
+          device_id: device.deviceCode,
           relay: checked,
-          status: nextStatus,
-          relay_status: nextStatus,
-        }),
-      })
-      await apiRequest("/api/relay-status", {
-        method: "POST",
-        body: JSON.stringify({
-          id,
-          device_id: id,
           status: nextStatus,
           relay_status: nextStatus,
         }),
@@ -828,7 +820,7 @@ export default function Page() {
                               checked={device.relayStatus === "ON"}
                               disabled={device.status === "Offline"}
                               onCheckedChange={(checked) =>
-                                handleToggleRelay(device.id, checked)
+                                handleToggleRelay(device, checked)
                               }
                             />
                             <Badge
