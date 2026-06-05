@@ -1,7 +1,14 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { SectionShell } from "@/components/section-shell"
+import {
+  apiRequest,
+  extractArray,
+  getBoolean,
+  getNumber,
+  getString,
+} from "@/lib/api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -217,28 +224,125 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+function mapHouse(item: unknown, index: number): House {
+  return {
+    id: getString(item, ["id", "id_rumah", "rumah_id"], `rumah-${index}`),
+    name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+    owner: getString(item, ["owner", "pemilik", "username", "nama_user"], "-"),
+  }
+}
+
+function mapDevice(item: unknown, index: number): Device {
+  const relayOn = getBoolean(item, ["relay", "relay_status", "status_relay"], false)
+
+  return {
+    id: getString(item, ["id", "id_perangkat", "perangkat_id", "device_id"], `device-${index}`),
+    houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
+    name: getString(item, ["name", "nama", "nama_perangkat"], "-"),
+    deviceCode: getString(item, ["deviceCode", "device_id", "kode_perangkat", "mac_address"], "-"),
+    loadName: getString(item, ["loadName", "nama_beban", "beban"], "-"),
+    status: getString(item, ["status", "status_perangkat"], "Online").toLowerCase().includes("offline")
+      ? "Offline"
+      : "Online",
+    relayStatus: relayOn ? "ON" : "OFF",
+    lastUpdate: getString(item, ["lastUpdate", "updated_at", "waktu"], "-"),
+  }
+}
+
+function mapElectricityLog(item: unknown, index: number): ElectricityLog {
+  const relayOn = getBoolean(item, ["relay", "relay_status", "status_relay"], true)
+
+  return {
+    time: getString(item, ["time", "waktu", "created_at", "timestamp"], String(index + 1)),
+    voltage: getNumber(item, ["voltage", "tegangan"], 0),
+    current: getNumber(item, ["current", "arus"], 0),
+    power: getNumber(item, ["power", "daya"], 0),
+    energy: getNumber(item, ["energy", "energi", "kwh"], 0),
+    frequency: getNumber(item, ["frequency", "frekuensi"], 0),
+    powerFactor: getNumber(item, ["powerFactor", "power_factor", "pf", "faktor_daya"], 0),
+    relayStatus: relayOn ? "ON" : "OFF",
+  }
+}
+
 export default function Page() {
+  const [houseRows, setHouseRows] = useState<House[]>(houses)
+  const [deviceRows, setDeviceRows] = useState<Device[]>(devices)
+  const [electricityRows, setElectricityRows] = useState<ElectricityLog[]>(realtimeLogs)
   const [selectedHouseId, setSelectedHouseId] = useState(houses[0].id)
   const [selectedDeviceId, setSelectedDeviceId] = useState(devices[0].id)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const [relayStates, setRelayStates] = useState<Record<string, RelayStatus>>({
     "device-1": "ON",
     "device-2": "OFF",
   })
 
-  const availableDevices = devices.filter(
+  useEffect(() => {
+    async function loadRealtimeData() {
+      setIsLoading(true)
+      setErrorMessage("")
+
+      try {
+        const [housePayload, devicePayload, electricityPayload, relayPayload] =
+          await Promise.all([
+            apiRequest<unknown>("/api/rumah"),
+            apiRequest<unknown>("/api/perangkat"),
+            apiRequest<unknown>("/api/data-listrik", {
+              method: "POST",
+              body: JSON.stringify({}),
+            }),
+            apiRequest<unknown>("/api/relay-state"),
+          ])
+
+        const nextHouses = extractArray(housePayload).map(mapHouse)
+        const nextDevices = extractArray(devicePayload).map(mapDevice)
+        const nextLogs = extractArray(electricityPayload).map(mapElectricityLog)
+        const nextRelayStates = Object.fromEntries(
+          extractArray(relayPayload).map((item, index) => {
+            const id = getString(item, ["id", "id_perangkat", "device_id"], `device-${index}`)
+            const status = getBoolean(item, ["relay", "relay_status", "status"], false)
+
+            return [id, status ? "ON" : "OFF"]
+          })
+        ) as Record<string, RelayStatus>
+
+        setHouseRows(nextHouses)
+        setDeviceRows(nextDevices)
+        setElectricityRows(nextLogs)
+        setRelayStates(nextRelayStates)
+        setSelectedHouseId(nextHouses[0]?.id ?? "")
+        setSelectedDeviceId(nextDevices[0]?.id ?? "")
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data realtime."
+        )
+        setHouseRows([])
+        setDeviceRows([])
+        setElectricityRows([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadRealtimeData()
+  }, [])
+
+  const availableDevices = deviceRows.filter(
     (device) => device.houseId === selectedHouseId
   )
 
   const selectedHouse =
-    houses.find((house) => house.id === selectedHouseId) ?? houses[0]
+    houseRows.find((house) => house.id === selectedHouseId) ?? houseRows[0]
 
   const selectedDevice =
     availableDevices.find((device) => device.id === selectedDeviceId) ??
     availableDevices[0]
 
-  const latestData = realtimeLogs[realtimeLogs.length - 1]
-  const latestRows = [...realtimeLogs].reverse().slice(0, 10)
+  const latestData = electricityRows[electricityRows.length - 1]
+  const latestRows = [...electricityRows].reverse().slice(0, 10)
 
   const currentRelayStatus =
     relayStates[selectedDevice?.id] ?? selectedDevice?.relayStatus ?? "OFF"
@@ -247,37 +351,37 @@ export default function Page() {
     () => [
       {
         label: "Tegangan",
-        value: `${latestData.voltage} V`,
+        value: `${latestData?.voltage ?? 0} V`,
         note: "Voltage listrik saat ini",
         icon: Zap,
       },
       {
         label: "Arus",
-        value: `${latestData.current} A`,
+        value: `${latestData?.current ?? 0} A`,
         note: "Arus listrik yang terbaca",
         icon: Activity,
       },
       {
         label: "Daya",
-        value: `${latestData.power} W`,
+        value: `${latestData?.power ?? 0} W`,
         note: "Pemakaian daya realtime",
         icon: Gauge,
       },
       {
         label: "Energi",
-        value: `${latestData.energy} kWh`,
+        value: `${latestData?.energy ?? 0} kWh`,
         note: "Total energi terpakai",
         icon: Power,
       },
       {
         label: "Frekuensi",
-        value: `${latestData.frequency} Hz`,
+        value: `${latestData?.frequency ?? 0} Hz`,
         note: "Frekuensi jaringan listrik",
         icon: Activity,
       },
       {
         label: "Faktor Daya",
-        value: latestData.powerFactor.toString(),
+        value: String(latestData?.powerFactor ?? 0),
         note: "Efisiensi pemakaian daya",
         icon: Cpu,
       },
@@ -288,20 +392,42 @@ export default function Page() {
   const handleHouseChange = (houseId: string) => {
     setSelectedHouseId(houseId)
 
-    const firstDevice = devices.find((device) => device.houseId === houseId)
+    const firstDevice = deviceRows.find((device) => device.houseId === houseId)
 
     if (firstDevice) {
       setSelectedDeviceId(firstDevice.id)
     }
   }
 
-  const handleToggleRelay = () => {
+  const handleToggleRelay = async () => {
     if (!selectedDevice) return
+    const nextStatus = currentRelayStatus === "ON" ? "OFF" : "ON"
 
     setRelayStates((prev) => ({
       ...prev,
-      [selectedDevice.id]: currentRelayStatus === "ON" ? "OFF" : "ON",
+      [selectedDevice.id]: nextStatus,
     }))
+
+    try {
+      await apiRequest("/api/relay-control", {
+        method: "POST",
+        body: JSON.stringify({
+          id: selectedDevice.id,
+          device_id: selectedDevice.deviceCode,
+          status: nextStatus,
+          relay_status: nextStatus,
+          relay: nextStatus === "ON",
+        }),
+      })
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Gagal mengubah relay."
+      )
+      setRelayStates((prev) => ({
+        ...prev,
+        [selectedDevice.id]: currentRelayStatus,
+      }))
+    }
   }
 
   if (!selectedDevice) {
@@ -311,7 +437,9 @@ export default function Page() {
           <Card>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground">
-                Tidak ada perangkat pada rumah ini.
+                {isLoading
+                  ? "Mengambil data realtime dari server..."
+                  : errorMessage || "Tidak ada perangkat pada rumah ini."}
               </p>
             </CardContent>
           </Card>
@@ -334,6 +462,14 @@ export default function Page() {
           </p>
         </div>
 
+        {errorMessage && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 text-sm text-destructive">
+              {errorMessage}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filter */}
         <Card>
           <CardHeader>
@@ -348,7 +484,7 @@ export default function Page() {
                     <SelectValue placeholder="Pilih rumah" />
                   </SelectTrigger>
                   <SelectContent>
-                    {houses.map((house) => (
+                    {houseRows.map((house) => (
                       <SelectItem key={house.id} value={house.id}>
                         {house.name}
                       </SelectItem>
@@ -475,7 +611,7 @@ export default function Page() {
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-80 w-full">
-                <LineChart data={realtimeLogs}>
+                <LineChart data={electricityRows}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="time" />
                   <YAxis />

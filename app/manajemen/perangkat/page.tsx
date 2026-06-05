@@ -3,6 +3,13 @@
 import * as React from "react"
 
 import { SectionShell } from "@/components/section-shell"
+import {
+  apiRequest,
+  extractArray,
+  getBoolean,
+  getNumber,
+  getString,
+} from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -178,8 +185,41 @@ function formatPower(value: number) {
   return `${value.toLocaleString("id-ID")} W`
 }
 
+function normalizeDeviceStatus(status: string): DeviceStatus {
+  const normalized = status.toLowerCase()
+
+  if (normalized.includes("offline") || normalized.includes("mati")) {
+    return "Offline"
+  }
+
+  if (normalized.includes("cek") || normalized.includes("warning")) {
+    return "Perlu Cek"
+  }
+
+  return "Online"
+}
+
+function mapDeviceRow(item: unknown, index: number): DeviceRow {
+  const relayOn = getBoolean(item, ["relay", "relay_status", "status_relay"], false)
+
+  return {
+    id: getString(item, ["id", "id_perangkat", "perangkat_id"], `device-${index}`),
+    deviceCode: getString(item, ["deviceCode", "device_id", "kode_perangkat", "mac_address"], "-"),
+    name: getString(item, ["name", "nama", "nama_perangkat"], "-"),
+    houseName: getString(item, ["houseName", "nama_rumah", "rumah"], "-"),
+    loadName: getString(item, ["loadName", "nama_beban", "beban"], "-"),
+    status: normalizeDeviceStatus(getString(item, ["status", "status_perangkat"], "Online")),
+    powerW: getNumber(item, ["powerW", "power", "daya", "daya_watt"], 0),
+    relayStatus: relayOn ? "ON" : "OFF",
+    lastUpdate: getString(item, ["lastUpdate", "updated_at", "waktu"], "-"),
+    note: getString(item, ["note", "catatan", "keterangan"]),
+  }
+}
+
 export default function Page() {
   const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>(initialDevices)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [errorMessage, setErrorMessage] = React.useState("")
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] =
@@ -191,6 +231,30 @@ export default function Page() {
   const [form, setForm] = React.useState<DeviceForm>(emptyForm)
 
   const pageSize = 5
+
+  const loadDevices = React.useCallback(async () => {
+    setIsLoading(true)
+    setErrorMessage("")
+
+    try {
+      const payload = await apiRequest<unknown>("/api/perangkat")
+      setDeviceRows(extractArray(payload).map(mapDeviceRow))
+      setCurrentPage(1)
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil data perangkat."
+      )
+      setDeviceRows([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadDevices)
+  }, [loadDevices])
 
   const totalDevices = deviceRows.length
   const onlineCount = deviceRows.filter(
@@ -303,22 +367,51 @@ export default function Page() {
     setCurrentPage(1)
   }
 
-  function handleToggleRelay(id: string, checked: boolean) {
+  async function handleToggleRelay(id: string, checked: boolean) {
+    const nextStatus: RelayStatus = checked ? "ON" : "OFF"
+
     setDeviceRows((current) =>
       current.map((device) =>
         device.id === id
           ? {
               ...device,
-              relayStatus: checked ? "ON" : "OFF",
+              relayStatus: nextStatus,
               lastUpdate: "Baru saja",
               powerW: checked ? Math.max(device.powerW, 80) : 0,
             }
           : device
       )
     )
+
+    try {
+      await apiRequest("/api/relay-control", {
+        method: "POST",
+        body: JSON.stringify({
+          id,
+          device_id: id,
+          relay: checked,
+          status: nextStatus,
+          relay_status: nextStatus,
+        }),
+      })
+      await apiRequest("/api/relay-status", {
+        method: "POST",
+        body: JSON.stringify({
+          id,
+          device_id: id,
+          status: nextStatus,
+          relay_status: nextStatus,
+        }),
+      })
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal mengubah relay."
+      )
+      void loadDevices()
+    }
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const codeAlreadyUsed = deviceRows.some(
@@ -344,6 +437,35 @@ export default function Page() {
       relayStatus: form.relayStatus,
       lastUpdate: existingDevice?.lastUpdate ?? "Baru ditambahkan",
       note: form.note.trim(),
+    }
+
+    if (!editingId) {
+      try {
+        await apiRequest("/api/perangkat", {
+          method: "POST",
+          body: JSON.stringify({
+            device_id: nextDevice.deviceCode,
+            kode_perangkat: nextDevice.deviceCode,
+            nama_perangkat: nextDevice.name,
+            nama: nextDevice.name,
+            nama_rumah: nextDevice.houseName,
+            nama_beban: nextDevice.loadName,
+            status: nextDevice.status,
+            daya: nextDevice.powerW,
+            relay_status: nextDevice.relayStatus,
+            catatan: nextDevice.note,
+          }),
+        })
+        await loadDevices()
+        resetForm()
+        setOpen(false)
+        return
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menyimpan perangkat."
+        )
+        return
+      }
     }
 
     setDeviceRows((current) => {
@@ -560,6 +682,14 @@ export default function Page() {
         </Drawer>
 
         {/* Statistics */}
+        {errorMessage && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 text-sm text-destructive">
+              {errorMessage}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {deviceStats.map((stat) => {
             const Icon = stat.icon
@@ -752,7 +882,9 @@ export default function Page() {
                         colSpan={9}
                         className="h-24 text-center text-muted-foreground"
                       >
-                        Tidak ada data perangkat yang sesuai dengan pencarian.
+                        {isLoading
+                          ? "Mengambil data perangkat dari server..."
+                          : "Tidak ada data perangkat yang sesuai dengan pencarian."}
                       </TableCell>
                     </TableRow>
                   )}

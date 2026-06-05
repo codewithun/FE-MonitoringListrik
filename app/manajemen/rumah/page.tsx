@@ -3,6 +3,12 @@
 import * as React from "react"
 
 import { SectionShell } from "@/components/section-shell"
+import {
+  apiRequest,
+  extractArray,
+  getNumber,
+  getString,
+} from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -157,8 +163,25 @@ function generateId() {
   return `house-${Date.now()}`
 }
 
+function mapHouseRow(item: unknown, index: number): HouseRow {
+  const status = getString(item, ["status", "status_rumah"], "Aktif")
+
+  return {
+    id: getString(item, ["id", "id_rumah", "rumah_id"], `house-${index}`),
+    name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+    owner: getString(item, ["owner", "pemilik", "username", "nama_user"], "-"),
+    deviceCount: getNumber(item, ["deviceCount", "jumlah_perangkat", "perangkat_count"], 0),
+    status:
+      status === "Nonaktif" || status === "Perlu Setup" ? status : "Aktif",
+    address: getString(item, ["address", "alamat"], "-"),
+    note: getString(item, ["note", "catatan", "keterangan"]),
+  }
+}
+
 export default function Page() {
   const [houseRows, setHouseRows] = React.useState<HouseRow[]>(initialHouses)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [errorMessage, setErrorMessage] = React.useState("")
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<HouseStatus | "all">(
@@ -169,6 +192,28 @@ export default function Page() {
   const [form, setForm] = React.useState<HouseForm>(emptyForm)
 
   const pageSize = 5
+
+  const loadHouses = React.useCallback(async () => {
+    setIsLoading(true)
+    setErrorMessage("")
+
+    try {
+      const payload = await apiRequest<unknown>("/api/rumah")
+      setHouseRows(extractArray(payload).map(mapHouseRow))
+      setCurrentPage(1)
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Gagal mengambil data rumah."
+      )
+      setHouseRows([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadHouses)
+  }, [loadHouses])
 
   const activeCount = houseRows.filter(
     (house) => house.status === "Aktif"
@@ -276,7 +321,7 @@ export default function Page() {
     setCurrentPage(1)
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const nextHouse: HouseRow = {
@@ -287,6 +332,32 @@ export default function Page() {
       status: form.status,
       address: form.address.trim(),
       note: form.note.trim(),
+    }
+
+    if (!editingId) {
+      try {
+        await apiRequest("/api/rumah", {
+          method: "POST",
+          body: JSON.stringify({
+            nama_rumah: nextHouse.name,
+            nama: nextHouse.name,
+            pemilik: nextHouse.owner,
+            alamat: nextHouse.address,
+            status: nextHouse.status,
+            jumlah_perangkat: nextHouse.deviceCount,
+            catatan: nextHouse.note,
+          }),
+        })
+        await loadHouses()
+        resetForm()
+        setOpen(false)
+        return
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menyimpan rumah."
+        )
+        return
+      }
     }
 
     setHouseRows((current) => {
@@ -460,6 +531,14 @@ export default function Page() {
         </Drawer>
 
         {/* Statistics */}
+        {errorMessage && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 text-sm text-destructive">
+              {errorMessage}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {houseStats.map((stat) => {
             const Icon = stat.icon
@@ -605,7 +684,9 @@ export default function Page() {
                         colSpan={7}
                         className="h-24 text-center text-muted-foreground"
                       >
-                        Tidak ada data rumah yang sesuai dengan pencarian.
+                        {isLoading
+                          ? "Mengambil data rumah dari server..."
+                          : "Tidak ada data rumah yang sesuai dengan pencarian."}
                       </TableCell>
                     </TableRow>
                   )}

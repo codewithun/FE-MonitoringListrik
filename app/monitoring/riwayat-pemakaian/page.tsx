@@ -1,7 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { SectionShell } from "@/components/section-shell"
+import {
+  apiRequest,
+  extractArray,
+  getNumber,
+  getString,
+} from "@/lib/api-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -308,29 +314,133 @@ const formatCurrency = (value: number) => {
   }).format(value)
 }
 
+function mapHouse(item: unknown, index: number): House {
+  return {
+    id: getString(item, ["id", "id_rumah", "rumah_id"], `rumah-${index}`),
+    name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+    owner: getString(item, ["owner", "pemilik", "username", "nama_user"], "-"),
+  }
+}
+
+function mapDevice(item: unknown, index: number): Device {
+  return {
+    id: getString(item, ["id", "id_perangkat", "perangkat_id", "device_id"], `device-${index}`),
+    houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
+    name: getString(item, ["name", "nama", "nama_perangkat"], "-"),
+    deviceCode: getString(item, ["deviceCode", "device_id", "kode_perangkat", "mac_address"], "-"),
+    loadName: getString(item, ["loadName", "nama_beban", "beban"], "-"),
+    status: getString(item, ["status", "status_perangkat"], "Online").toLowerCase().includes("offline")
+      ? "Offline"
+      : "Online",
+  }
+}
+
+function mapUsageHistory(item: unknown, index: number): UsageHistory {
+  const energyKwh = getNumber(item, ["energyKwh", "energy", "energi", "kwh"], 0)
+  const power = getNumber(item, ["avgPower", "power", "daya"], 0)
+  const maxPower = getNumber(item, ["maxPower", "daya_maksimum"], power)
+
+  return {
+    id: getString(item, ["id"], `history-${index}`),
+    houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
+    deviceId: getString(item, ["deviceId", "id_perangkat", "perangkat_id", "device_id"], ""),
+    date: getString(item, ["date", "tanggal", "created_at", "waktu"], String(index + 1)),
+    energyKwh,
+    cost: getNumber(item, ["cost", "biaya"], energyKwh * electricityRate),
+    avgPower: power,
+    maxPower,
+    relayOnDuration: getString(item, ["relayOnDuration", "durasi_on"], "-"),
+    status: energyKwh >= 2.5 || maxPower >= 400 ? "Tinggi" : "Normal",
+  }
+}
+
+function mapMonthlyUsage(item: unknown, index: number): MonthlyUsage {
+  const energyKwh = getNumber(item, ["energyKwh", "energy", "energi", "kwh", "prediksi_kwh"], 0)
+
+  return {
+    houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
+    deviceId: getString(item, ["deviceId", "id_perangkat", "perangkat_id", "device_id"], ""),
+    month: getString(item, ["month", "bulan", "periode"], String(index + 1)),
+    energyKwh,
+    cost: getNumber(item, ["cost", "biaya"], energyKwh * electricityRate),
+  }
+}
+
 export default function Page() {
+  const [houseRows, setHouseRows] = useState<House[]>(houses)
+  const [deviceRows, setDeviceRows] = useState<Device[]>(devices)
+  const [historyRows, setHistoryRows] = useState<UsageHistory[]>(usageHistory)
+  const [monthlyRows, setMonthlyRows] = useState<MonthlyUsage[]>(monthlyUsage)
   const [selectedHouseId, setSelectedHouseId] = useState(houses[0].id)
   const [selectedDeviceId, setSelectedDeviceId] = useState(devices[0].id)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState("")
 
-  const availableDevices = devices.filter(
+  useEffect(() => {
+    async function loadHistoryData() {
+      setIsLoading(true)
+      setErrorMessage("")
+
+      try {
+        const [housePayload, devicePayload, historyPayload, monthlyPayload] =
+          await Promise.all([
+            apiRequest<unknown>("/api/rumah"),
+            apiRequest<unknown>("/api/perangkat"),
+            apiRequest<unknown>("/api/data-listrik", {
+              method: "POST",
+              body: JSON.stringify({}),
+            }),
+            apiRequest<unknown>("/api/prediksi-bulanan"),
+          ])
+
+        const nextHouses = extractArray(housePayload).map(mapHouse)
+        const nextDevices = extractArray(devicePayload).map(mapDevice)
+
+        setHouseRows(nextHouses)
+        setDeviceRows(nextDevices)
+        setHistoryRows(extractArray(historyPayload).map(mapUsageHistory))
+        setMonthlyRows(extractArray(monthlyPayload).map(mapMonthlyUsage))
+        setSelectedHouseId(nextHouses[0]?.id ?? "")
+        setSelectedDeviceId(nextDevices[0]?.id ?? "")
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil riwayat pemakaian."
+        )
+        setHouseRows([])
+        setDeviceRows([])
+        setHistoryRows([])
+        setMonthlyRows([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadHistoryData()
+  }, [])
+
+  const availableDevices = deviceRows.filter(
     (device) => device.houseId === selectedHouseId
   )
 
   const selectedHouse =
-    houses.find((house) => house.id === selectedHouseId) ?? houses[0]
+    houseRows.find((house) => house.id === selectedHouseId) ?? houseRows[0]
 
   const selectedDevice =
     availableDevices.find((device) => device.id === selectedDeviceId) ??
     availableDevices[0]
 
-  const filteredHistory = usageHistory.filter(
+  const filteredHistory = historyRows.filter(
     (item) =>
-      item.houseId === selectedHouseId && item.deviceId === selectedDevice?.id
+      (!item.houseId || item.houseId === selectedHouseId) &&
+      (!item.deviceId || item.deviceId === selectedDevice?.id)
   )
 
-  const filteredMonthlyUsage = monthlyUsage.filter(
+  const filteredMonthlyUsage = monthlyRows.filter(
     (item) =>
-      item.houseId === selectedHouseId && item.deviceId === selectedDevice?.id
+      (!item.houseId || item.houseId === selectedHouseId) &&
+      (!item.deviceId || item.deviceId === selectedDevice?.id)
   )
 
   const summary = useMemo(() => {
@@ -363,7 +473,7 @@ export default function Page() {
   const handleHouseChange = (houseId: string) => {
     setSelectedHouseId(houseId)
 
-    const firstDevice = devices.find((device) => device.houseId === houseId)
+    const firstDevice = deviceRows.find((device) => device.houseId === houseId)
 
     if (firstDevice) {
       setSelectedDeviceId(firstDevice.id)
@@ -381,7 +491,9 @@ export default function Page() {
           <Card>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground">
-                Tidak ada perangkat pada rumah ini.
+                {isLoading
+                  ? "Mengambil riwayat pemakaian dari server..."
+                  : errorMessage || "Tidak ada perangkat pada rumah ini."}
               </p>
             </CardContent>
           </Card>
@@ -403,6 +515,14 @@ export default function Page() {
           </p>
         </div>
 
+        {errorMessage && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 text-sm text-destructive">
+              {errorMessage}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filter */}
         <Card>
           <CardHeader>
@@ -417,7 +537,7 @@ export default function Page() {
                     <SelectValue placeholder="Pilih rumah" />
                   </SelectTrigger>
                   <SelectContent>
-                    {houses.map((house) => (
+                    {houseRows.map((house) => (
                       <SelectItem key={house.id} value={house.id}>
                         {house.name}
                       </SelectItem>
