@@ -96,45 +96,6 @@ type UserOption = {
   email: string
 }
 
-const initialHouses: HouseRow[] = [
-  {
-    id: "house-1",
-    name: "Rumah Melati 12",
-    owner: "Budi Santoso",
-    deviceCount: 1,
-    status: "Aktif",
-    address: "Jl. Melati No. 12, Bandung",
-    note: "Rumah utama pengguna.",
-  },
-  {
-    id: "house-2",
-    name: "Rumah Kenanga 07",
-    owner: "Siti Aisyah",
-    deviceCount: 1,
-    status: "Aktif",
-    address: "Jl. Kenanga No. 7, Bandung",
-    note: "Perangkat sudah terhubung.",
-  },
-  {
-    id: "house-4",
-    name: "Rumah Cempaka 03",
-    owner: "Maya Putri",
-    deviceCount: 1,
-    status: "Aktif",
-    address: "Jl. Cempaka No. 3, Bandung",
-    note: "Monitoring berjalan normal.",
-  },
-  {
-    id: "house-5",
-    name: "Rumah Teratai 05",
-    owner: "Nadia Putri",
-    deviceCount: 1,
-    status: "Nonaktif",
-    address: "Jl. Teratai No. 5, Bandung",
-    note: "Rumah sementara dinonaktifkan.",
-  },
-]
-
 const emptyForm: HouseForm = {
   name: "",
   owner: "",
@@ -153,10 +114,6 @@ function getHouseBadgeVariant(status: HouseStatus) {
     default:
       return "secondary"
   }
-}
-
-function generateId() {
-  return `house-${Date.now()}`
 }
 
 function mapHouseRow(item: unknown, index: number): HouseRow {
@@ -188,7 +145,7 @@ function mapUserOption(item: unknown, index: number): UserOption {
 }
 
 export default function Page() {
-  const [houseRows, setHouseRows] = React.useState<HouseRow[]>(initialHouses)
+  const [houseRows, setHouseRows] = React.useState<HouseRow[]>([])
   const [userOptions, setUserOptions] = React.useState<UserOption[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
@@ -342,22 +299,30 @@ export default function Page() {
     setOpen(true)
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     const confirmDelete = window.confirm(
       "Yakin ingin menghapus data rumah ini?"
     )
 
     if (!confirmDelete) return
 
-    setHouseRows((current) => current.filter((house) => house.id !== id))
-    setCurrentPage(1)
+    try {
+      await apiRequest(`/api/rumah/${id}`, {
+        method: "DELETE",
+      })
+      await loadHouses()
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal menghapus rumah."
+      )
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const nextHouse: HouseRow = {
-      id: editingId ?? generateId(),
+      id: editingId ?? "",
       name: form.name.trim(),
       owner: form.owner.trim(),
       deviceCount: Number(form.deviceCount),
@@ -365,6 +330,10 @@ export default function Page() {
       address: form.address.trim(),
       note: form.note.trim(),
     }
+
+    const ownerId = userOptions.find(
+      (user) => user.name === nextHouse.owner
+    )?.id
 
     if (!editingId) {
       try {
@@ -374,13 +343,11 @@ export default function Page() {
             nama_rumah: nextHouse.name,
             nama: nextHouse.name,
             pemilik: nextHouse.owner,
-            pengguna_id: userOptions.find(
-              (user) => user.name === nextHouse.owner
-            )?.id,
+            pengguna_id: ownerId,
             alamat: nextHouse.address,
             status: nextHouse.status,
             jumlah_perangkat: nextHouse.deviceCount,
-            catatan: nextHouse.note,
+            deskripsi: nextHouse.note,
           }),
         })
         await loadHouses()
@@ -395,19 +362,24 @@ export default function Page() {
       }
     }
 
-    setHouseRows((current) => {
-      if (editingId) {
-        return current.map((house) =>
-          house.id === editingId ? nextHouse : house
-        )
-      }
-
-      return [nextHouse, ...current]
-    })
-
-    setCurrentPage(1)
-    resetForm()
-    setOpen(false)
+    try {
+      await apiRequest(`/api/rumah/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nama_rumah: nextHouse.name,
+          alamat: nextHouse.address,
+          deskripsi: nextHouse.note,
+          pengguna_id: ownerId,
+        }),
+      })
+      await loadHouses()
+      resetForm()
+      setOpen(false)
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal memperbarui rumah."
+      )
+    }
   }
 
   return (

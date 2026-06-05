@@ -98,45 +98,6 @@ type DeviceForm = {
   note: string
 }
 
-const initialDevices: DeviceRow[] = [
-  {
-    id: "device-1",
-    deviceCode: "9454C5A93644",
-    name: "ESP32 Ruang Tamu",
-    houseName: "Rumah Melati 12",
-    loadName: "Lampu Ruang Tamu",
-    status: "Online",
-    powerW: 240,
-    relayStatus: "ON",
-    lastUpdate: "1 menit lalu",
-    note: "Perangkat utama untuk monitoring ruang tamu.",
-  },
-  {
-    id: "device-2",
-    deviceCode: "A12B45C78D90",
-    name: "ESP32 Kamar Utama",
-    houseName: "Rumah Kenanga 07",
-    loadName: "Kipas Angin",
-    status: "Online",
-    powerW: 120,
-    relayStatus: "OFF",
-    lastUpdate: "5 menit lalu",
-    note: "Relay sedang dimatikan.",
-  },
-  {
-    id: "device-3",
-    deviceCode: "BC34D56E7890",
-    name: "ESP32 Dapur",
-    houseName: "Rumah Anggrek 19",
-    loadName: "Lampu Dapur",
-    status: "Offline",
-    powerW: 0,
-    relayStatus: "OFF",
-    lastUpdate: "43 menit lalu",
-    note: "Perangkat tidak mengirim data.",
-  },
-]
-
 const emptyForm: DeviceForm = {
   deviceCode: "",
   name: "",
@@ -161,10 +122,6 @@ function getDeviceBadgeVariant(status: DeviceStatus) {
 
 function getRelayBadgeVariant(status: RelayStatus) {
   return status === "ON" ? "default" : "secondary"
-}
-
-function generateId() {
-  return `device-${Date.now()}`
 }
 
 function formatPower(value: number) {
@@ -199,7 +156,7 @@ function mapDeviceRow(item: unknown, index: number): DeviceRow {
 }
 
 export default function Page() {
-  const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>(initialDevices)
+  const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
   const [open, setOpen] = React.useState(false)
@@ -338,15 +295,23 @@ export default function Page() {
     setOpen(true)
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     const confirmDelete = window.confirm(
       "Yakin ingin menghapus perangkat ini?"
     )
 
     if (!confirmDelete) return
 
-    setDeviceRows((current) => current.filter((device) => device.id !== id))
-    setCurrentPage(1)
+    try {
+      await apiRequest(`/api/perangkat/${id}`, {
+        method: "DELETE",
+      })
+      await loadDevices()
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal menghapus perangkat."
+      )
+    }
   }
 
   async function handleToggleRelay(device: DeviceRow, checked: boolean) {
@@ -398,10 +363,8 @@ export default function Page() {
       return
     }
 
-    const existingDevice = deviceRows.find((device) => device.id === editingId)
-
     const nextDevice: DeviceRow = {
-      id: editingId ?? generateId(),
+      id: editingId ?? "",
       deviceCode: form.deviceCode.trim(),
       name: form.name.trim(),
       houseName: form.houseName.trim(),
@@ -409,7 +372,7 @@ export default function Page() {
       status: form.status,
       powerW: Number(form.powerW || 0),
       relayStatus: form.relayStatus,
-      lastUpdate: existingDevice?.lastUpdate ?? "Baru ditambahkan",
+      lastUpdate: "Baru saja",
       note: form.note.trim(),
     }
 
@@ -442,19 +405,24 @@ export default function Page() {
       }
     }
 
-    setDeviceRows((current) => {
-      if (editingId) {
-        return current.map((device) =>
-          device.id === editingId ? nextDevice : device
-        )
-      }
-
-      return [nextDevice, ...current]
-    })
-
-    setCurrentPage(1)
-    resetForm()
-    setOpen(false)
+    try {
+      await apiRequest(`/api/perangkat/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nama_perangkat: nextDevice.name,
+          status_relay: nextDevice.relayStatus === "ON",
+          status_online: nextDevice.status === "Online",
+          catatan: nextDevice.note,
+        }),
+      })
+      await loadDevices()
+      resetForm()
+      setOpen(false)
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal memperbarui perangkat."
+      )
+    }
   }
 
   return (

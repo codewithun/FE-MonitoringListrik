@@ -2,7 +2,7 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.zxnco.my.id"
 
 type ApiOptions = RequestInit & {
-  method?: "GET" | "POST"
+  method?: "GET" | "POST" | "PUT" | "DELETE"
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}) {

@@ -66,12 +66,11 @@ import {
   Search,
   ShieldCheck,
   UserCheck,
-  UserRoundX,
   Users,
 } from "lucide-react"
 
 type UserRole = "Admin" | "User"
-type UserStatus = "Aktif" | "Verifikasi" | "Nonaktif"
+type UserStatus = "Aktif" | "Nonaktif"
 
 type UserRow = {
   id: string
@@ -87,6 +86,7 @@ type UserRow = {
 type UserForm = {
   name: string
   email: string
+  password: string
   role: UserRole
   houseName: string
   status: UserStatus
@@ -98,72 +98,10 @@ type HouseOption = {
   name: string
 }
 
-const initialUsers: UserRow[] = [
-  {
-    id: "user-1",
-    name: "Budi Santoso",
-    email: "budi@rumahku.id",
-    role: "User",
-    houseName: "Rumah Melati 12",
-    status: "Aktif",
-    lastLogin: "2 jam lalu",
-    note: "Pemilik rumah utama.",
-  },
-  {
-    id: "user-2",
-    name: "Siti Aisyah",
-    email: "siti@rumahku.id",
-    role: "User",
-    houseName: "Rumah Kenanga 07",
-    status: "Aktif",
-    lastLogin: "Kemarin",
-    note: "Akun user aktif.",
-  },
-  {
-    id: "user-3",
-    name: "Andi Pratama",
-    email: "andi@rumahku.id",
-    role: "User",
-    houseName: "Rumah Anggrek 19",
-    status: "Verifikasi",
-    lastLogin: "5 hari lalu",
-    note: "Menunggu verifikasi akun.",
-  },
-  {
-    id: "user-4",
-    name: "Maya Putri",
-    email: "maya@rumahku.id",
-    role: "User",
-    houseName: "Rumah Cempaka 03",
-    status: "Aktif",
-    lastLogin: "30 menit lalu",
-    note: "Perangkat sudah terhubung.",
-  },
-  {
-    id: "user-5",
-    name: "Admin Sistem",
-    email: "admin@smartenergy.id",
-    role: "Admin",
-    houseName: "",
-    status: "Aktif",
-    lastLogin: "Hari ini",
-    note: "Admin pengelola sistem.",
-  },
-  {
-    id: "user-6",
-    name: "Rina Permata",
-    email: "rina@rumahku.id",
-    role: "User",
-    houseName: "Rumah Flamboyan 21",
-    status: "Nonaktif",
-    lastLogin: "2 minggu lalu",
-    note: "Akun sementara dinonaktifkan.",
-  },
-]
-
 const emptyForm: UserForm = {
   name: "",
   email: "",
+  password: "",
   role: "User",
   houseName: "",
   status: "Aktif",
@@ -174,8 +112,6 @@ function getUserBadgeVariant(status: UserStatus) {
   switch (status) {
     case "Aktif":
       return "default"
-    case "Verifikasi":
-      return "outline"
     case "Nonaktif":
       return "secondary"
     default:
@@ -185,10 +121,6 @@ function getUserBadgeVariant(status: UserStatus) {
 
 function getRoleBadgeVariant(role: UserRole) {
   return role === "Admin" ? "destructive" : "secondary"
-}
-
-function generateId() {
-  return `user-${Date.now()}`
 }
 
 function mapHouseOption(item: unknown, index: number): HouseOption {
@@ -219,7 +151,7 @@ function mapUserRow(item: unknown, index: number): UserRow {
 }
 
 export default function Page() {
-  const [userRows, setUserRows] = React.useState<UserRow[]>(initialUsers)
+  const [userRows, setUserRows] = React.useState<UserRow[]>([])
   const [isLoadingUsers, setIsLoadingUsers] = React.useState(true)
   const [userError, setUserError] = React.useState("")
   const [houseOptions, setHouseOptions] = React.useState<HouseOption[]>([])
@@ -278,8 +210,8 @@ export default function Page() {
 
   const totalUsers = userRows.length
   const activeCount = userRows.filter((user) => user.status === "Aktif").length
-  const verificationCount = userRows.filter(
-    (user) => user.status === "Verifikasi"
+  const inactiveCount = userRows.filter(
+    (user) => user.status === "Nonaktif"
   ).length
   const adminCount = userRows.filter((user) => user.role === "Admin").length
 
@@ -333,10 +265,10 @@ export default function Page() {
       icon: UserCheck,
     },
     {
-      label: "Perlu Verifikasi",
-      value: verificationCount,
-      note: "Akun menunggu validasi",
-      icon: UserRoundX,
+      label: "User Nonaktif",
+      value: inactiveCount,
+      note: "Akun yang sedang dinonaktifkan",
+      icon: UserCheck,
     },
     {
       label: "Admin",
@@ -361,6 +293,7 @@ export default function Page() {
     setForm({
       name: user.name,
       email: user.email,
+      password: "",
       role: user.role,
       houseName: user.houseName,
       status: user.status,
@@ -369,18 +302,27 @@ export default function Page() {
     setOpen(true)
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     const confirmDelete = window.confirm(
       "Yakin ingin menghapus user ini?"
     )
 
     if (!confirmDelete) return
 
-    setUserRows((current) => current.filter((user) => user.id !== id))
-    setCurrentPage(1)
+    try {
+      await apiRequest(`/api/users/${id}`, {
+        method: "DELETE",
+      })
+      await loadUsers()
+      await loadHouseOptions()
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal menghapus user."
+      )
+    }
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const emailAlreadyUsed = userRows.some(
@@ -392,30 +334,46 @@ export default function Page() {
       return
     }
 
-    const existingUser = userRows.find((user) => user.id === editingId)
+    if (!editingId && form.password.length < 8) {
+      window.alert("Password awal minimal 8 karakter.")
+      return
+    }
 
     const nextUser: UserRow = {
-      id: editingId ?? generateId(),
+      id: editingId ?? "",
       name: form.name.trim(),
       email: form.email.trim(),
       role: form.role,
       houseName: form.houseName.trim(),
       status: form.status,
-      lastLogin: existingUser?.lastLogin ?? "Belum pernah login",
+      lastLogin: "Baru saja",
       note: form.note.trim(),
     }
 
-    setUserRows((current) => {
-      if (editingId) {
-        return current.map((user) => (user.id === editingId ? nextUser : user))
-      }
+    const houseId =
+      houseOptions.find((house) => house.name === nextUser.houseName)?.id ?? ""
+    const payload = {
+      username: nextUser.name,
+      email: nextUser.email,
+      password: form.password || undefined,
+      role: nextUser.role === "Admin" ? "admin" : "user",
+      aktif: nextUser.status !== "Nonaktif",
+      rumah_id: houseId,
+    }
 
-      return [nextUser, ...current]
-    })
-
-    setCurrentPage(1)
-    resetForm()
-    setOpen(false)
+    try {
+      await apiRequest(editingId ? `/api/users/${editingId}` : "/api/users", {
+        method: editingId ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      })
+      await loadUsers()
+      resetForm()
+      setOpen(false)
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal menyimpan user."
+      )
+    }
   }
 
   return (
@@ -524,10 +482,32 @@ export default function Page() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Aktif">Aktif</SelectItem>
-                      <SelectItem value="Verifikasi">Verifikasi</SelectItem>
                       <SelectItem value="Nonaktif">Nonaktif</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="user-password">
+                    {editingId ? "Password Baru" : "Password Awal"}
+                  </Label>
+                  <Input
+                    id="user-password"
+                    type="password"
+                    value={form.password}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      editingId
+                        ? "Kosongkan jika tidak ingin mengubah password"
+                        : "Minimal 8 karakter"
+                    }
+                    required={!editingId}
+                  />
                 </div>
 
                 <div className="grid gap-2 md:col-span-2">
@@ -690,7 +670,6 @@ export default function Page() {
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="Aktif">Aktif</SelectItem>
-                    <SelectItem value="Verifikasi">Verifikasi</SelectItem>
                     <SelectItem value="Nonaktif">Nonaktif</SelectItem>
                   </SelectContent>
                 </Select>
