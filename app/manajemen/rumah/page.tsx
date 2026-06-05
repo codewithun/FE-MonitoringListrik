@@ -8,6 +8,7 @@ import {
   extractArray,
   getNumber,
   getString,
+  getValue,
 } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -89,6 +90,12 @@ type HouseForm = {
   note: string
 }
 
+type UserOption = {
+  id: string
+  name: string
+  email: string
+}
+
 const initialHouses: HouseRow[] = [
   {
     id: "house-1",
@@ -165,11 +172,15 @@ function generateId() {
 
 function mapHouseRow(item: unknown, index: number): HouseRow {
   const status = getString(item, ["status", "status_rumah"], "Aktif")
+  const owners = extractArray(getValue(item, ["pemilik", "owners", "users"]))
+  const firstOwner = owners[0]
 
   return {
     id: getString(item, ["id", "id_rumah", "rumah_id"], `house-${index}`),
     name: getString(item, ["name", "nama", "nama_rumah"], "-"),
-    owner: getString(item, ["owner", "pemilik", "username", "nama_user"], "-"),
+    owner:
+      getString(firstOwner, ["username", "name", "nama", "nama_user"]) ||
+      getString(item, ["owner", "username", "nama_user"], "-"),
     deviceCount: getNumber(item, ["deviceCount", "jumlah_perangkat", "perangkat_count"], 0),
     status:
       status === "Nonaktif" || status === "Perlu Setup" ? status : "Aktif",
@@ -178,10 +189,22 @@ function mapHouseRow(item: unknown, index: number): HouseRow {
   }
 }
 
+function mapUserOption(item: unknown, index: number): UserOption {
+  const name = getString(item, ["name", "username", "nama", "nama_user"], "-")
+
+  return {
+    id: getString(item, ["id", "id_pengguna", "pengguna_id"], `user-${index}`),
+    name,
+    email: getString(item, ["email"], ""),
+  }
+}
+
 export default function Page() {
   const [houseRows, setHouseRows] = React.useState<HouseRow[]>(initialHouses)
+  const [userOptions, setUserOptions] = React.useState<UserOption[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
+  const [userOptionsError, setUserOptionsError] = React.useState("")
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<HouseStatus | "all">(
@@ -214,6 +237,27 @@ export default function Page() {
   React.useEffect(() => {
     void Promise.resolve().then(loadHouses)
   }, [loadHouses])
+
+  const loadUserOptions = React.useCallback(async () => {
+    setUserOptionsError("")
+
+    for (const path of ["/api/users", "/api/pengguna", "/api/auth/users"]) {
+      try {
+        const payload = await apiRequest<unknown>(path)
+        setUserOptions(extractArray(payload).map(mapUserOption))
+        return
+      } catch {
+        // Keep trying the common endpoint names for a user list.
+      }
+    }
+
+    setUserOptions([])
+    setUserOptionsError("Endpoint daftar user belum tersedia di backend.")
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadUserOptions)
+  }, [loadUserOptions])
 
   const activeCount = houseRows.filter(
     (house) => house.status === "Aktif"
@@ -342,6 +386,9 @@ export default function Page() {
             nama_rumah: nextHouse.name,
             nama: nextHouse.name,
             pemilik: nextHouse.owner,
+            pengguna_id: userOptions.find(
+              (user) => user.name === nextHouse.owner
+            )?.id,
             alamat: nextHouse.address,
             status: nextHouse.status,
             jumlah_perangkat: nextHouse.deviceCount,
@@ -428,19 +475,35 @@ export default function Page() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="house-owner">Pemilik / User</Label>
-                  <Input
-                    id="house-owner"
+                  <Label>Pemilik / User</Label>
+                  <Select
                     value={form.owner}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        owner: event.target.value,
+                        owner: value,
                       }))
                     }
-                    placeholder="Contoh: Budi Santoso"
-                    required
-                  />
+                    disabled={userOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih pemilik rumah" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userOptions.map((user) => (
+                        <SelectItem key={user.id} value={user.name}>
+                          {user.email
+                            ? `${user.name} - ${user.email}`
+                            : user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {userOptionsError ? (
+                    <p className="text-xs text-destructive">
+                      {userOptionsError}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-2">

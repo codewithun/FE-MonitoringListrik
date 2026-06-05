@@ -3,6 +3,13 @@
 import * as React from "react"
 
 import { SectionShell } from "@/components/section-shell"
+import {
+  apiRequest,
+  extractArray,
+  getBoolean,
+  getString,
+  getValue,
+} from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -84,6 +91,11 @@ type UserForm = {
   houseName: string
   status: UserStatus
   note: string
+}
+
+type HouseOption = {
+  id: string
+  name: string
 }
 
 const initialUsers: UserRow[] = [
@@ -179,8 +191,39 @@ function generateId() {
   return `user-${Date.now()}`
 }
 
+function mapHouseOption(item: unknown, index: number): HouseOption {
+  return {
+    id: getString(item, ["id", "id_rumah", "rumah_id"], `house-${index}`),
+    name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+  }
+}
+
+function mapUserRow(item: unknown, index: number): UserRow {
+  const houses = extractArray(getValue(item, ["rumah", "houses"]))
+  const role = getString(item, ["role"], "user").toLowerCase()
+  const active = getBoolean(item, ["aktif", "active"], true)
+
+  return {
+    id: getString(item, ["id", "id_pengguna", "pengguna_id"], `user-${index}`),
+    name: getString(item, ["name", "username", "nama", "nama_user"], "-"),
+    email: getString(item, ["email"], "-"),
+    role: role === "admin" ? "Admin" : "User",
+    houseName: houses
+      .map((house) => getString(house, ["nama_rumah", "name", "nama"]))
+      .filter(Boolean)
+      .join(", "),
+    status: active ? "Aktif" : "Nonaktif",
+    lastLogin: getString(item, ["lastLogin", "last_login", "updated_at"], "-"),
+    note: getString(item, ["note", "catatan", "keterangan"]),
+  }
+}
+
 export default function Page() {
   const [userRows, setUserRows] = React.useState<UserRow[]>(initialUsers)
+  const [isLoadingUsers, setIsLoadingUsers] = React.useState(true)
+  const [userError, setUserError] = React.useState("")
+  const [houseOptions, setHouseOptions] = React.useState<HouseOption[]>([])
+  const [houseError, setHouseError] = React.useState("")
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<UserStatus | "all">(
@@ -192,6 +235,46 @@ export default function Page() {
   const [form, setForm] = React.useState<UserForm>(emptyForm)
 
   const pageSize = 5
+
+  const loadUsers = React.useCallback(async () => {
+    setIsLoadingUsers(true)
+    setUserError("")
+
+    try {
+      const payload = await apiRequest<unknown>("/api/users")
+      setUserRows(extractArray(payload).map(mapUserRow))
+      setCurrentPage(1)
+    } catch (error) {
+      setUserError(
+        error instanceof Error ? error.message : "Gagal mengambil data user."
+      )
+      setUserRows([])
+    } finally {
+      setIsLoadingUsers(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadUsers)
+  }, [loadUsers])
+
+  const loadHouseOptions = React.useCallback(async () => {
+    setHouseError("")
+
+    try {
+      const payload = await apiRequest<unknown>("/api/rumah")
+      setHouseOptions(extractArray(payload).map(mapHouseOption))
+    } catch (error) {
+      setHouseError(
+        error instanceof Error ? error.message : "Gagal mengambil data rumah."
+      )
+      setHouseOptions([])
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadHouseOptions)
+  }, [loadHouseOptions])
 
   const totalUsers = userRows.length
   const activeCount = userRows.filter((user) => user.status === "Aktif").length
@@ -448,20 +531,37 @@ export default function Page() {
                 </div>
 
                 <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="user-house">Rumah Terhubung</Label>
+                  <Label>Rumah Terhubung</Label>
                   <Input
-                    id="user-house"
+                    type="hidden"
+                    name="houseName"
                     value={form.houseName}
-                    onChange={(event) =>
+                    readOnly
+                  />
+                  <Select
+                    value={form.houseName || "none"}
+                    onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        houseName: event.target.value,
+                        houseName: value === "none" ? "" : value,
                       }))
                     }
-                    placeholder="Contoh: Rumah Melati 12"
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih rumah" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Tidak terhubung</SelectItem>
+                      {houseOptions.map((house) => (
+                        <SelectItem key={house.id} value={house.name}>
+                          {house.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground">
-                    Kosongkan jika akun ini adalah admin sistem.
+                    {houseError ||
+                      "Kosongkan jika akun ini adalah admin sistem."}
                   </p>
                 </div>
 
@@ -497,6 +597,14 @@ export default function Page() {
         </Drawer>
 
         {/* Statistics */}
+        {userError ? (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 text-sm text-destructive">
+              {userError}
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {userStats.map((stat) => {
             const Icon = stat.icon
@@ -675,7 +783,9 @@ export default function Page() {
                         colSpan={8}
                         className="h-24 text-center text-muted-foreground"
                       >
-                        Tidak ada data user yang sesuai dengan pencarian.
+                        {isLoadingUsers
+                          ? "Mengambil data user dari server..."
+                          : "Tidak ada data user yang sesuai dengan pencarian."}
                       </TableCell>
                     </TableRow>
                   )}
