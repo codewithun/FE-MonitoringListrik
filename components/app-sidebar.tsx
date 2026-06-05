@@ -41,7 +41,7 @@ const data = {
         },
         {
           title: "Rumah",
-          url: "/manajem  en/rumah",
+          url: "/manajemen/rumah",
         },
         {
           title: "Perangkat",
