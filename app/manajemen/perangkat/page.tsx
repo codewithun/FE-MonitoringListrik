@@ -77,6 +77,7 @@ type RelayStatus = "ON" | "OFF"
 type DeviceRow = {
   id: string
   deviceCode: string
+  houseId: string
   name: string
   houseName: string
   loadName: string
@@ -89,6 +90,7 @@ type DeviceRow = {
 
 type DeviceForm = {
   deviceCode: string
+  houseId: string
   name: string
   houseName: string
   loadName: string
@@ -98,8 +100,14 @@ type DeviceForm = {
   note: string
 }
 
+type HouseOption = {
+  id: string
+  name: string
+}
+
 const emptyForm: DeviceForm = {
   deviceCode: "",
+  houseId: "",
   name: "",
   houseName: "",
   loadName: "",
@@ -144,6 +152,7 @@ function mapDeviceRow(item: unknown, index: number): DeviceRow {
   return {
     id: getString(item, ["id", "id_perangkat", "perangkat_id"], `device-${index}`),
     deviceCode: getString(item, ["deviceCode", "device_id", "kode_perangkat", "mac_address"], "-"),
+    houseId: getString(item, ["houseId", "rumah_id", "id_rumah"], ""),
     name: getString(item, ["name", "nama", "nama_perangkat"], "-"),
     houseName: getString(item, ["houseName", "nama_rumah", "rumah"], "-"),
     loadName: getString(item, ["loadName", "nama_beban", "beban"], "-"),
@@ -155,10 +164,19 @@ function mapDeviceRow(item: unknown, index: number): DeviceRow {
   }
 }
 
+function mapHouseOption(item: unknown, index: number): HouseOption {
+  return {
+    id: getString(item, ["id", "id_rumah", "rumah_id"], `house-${index}`),
+    name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+  }
+}
+
 export default function Page() {
   const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>([])
+  const [houseOptions, setHouseOptions] = React.useState<HouseOption[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
+  const [houseError, setHouseError] = React.useState("")
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] =
@@ -194,6 +212,24 @@ export default function Page() {
   React.useEffect(() => {
     void Promise.resolve().then(loadDevices)
   }, [loadDevices])
+
+  const loadHouseOptions = React.useCallback(async () => {
+    setHouseError("")
+
+    try {
+      const payload = await apiRequest<unknown>("/api/rumah")
+      setHouseOptions(extractArray(payload).map(mapHouseOption))
+    } catch (error) {
+      setHouseError(
+        error instanceof Error ? error.message : "Gagal mengambil data rumah."
+      )
+      setHouseOptions([])
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void Promise.resolve().then(loadHouseOptions)
+  }, [loadHouseOptions])
 
   const totalDevices = deviceRows.length
   const onlineCount = deviceRows.filter(
@@ -284,6 +320,7 @@ export default function Page() {
     setEditingId(device.id)
     setForm({
       deviceCode: device.deviceCode,
+      houseId: device.houseId,
       name: device.name,
       houseName: device.houseName,
       loadName: device.loadName,
@@ -366,8 +403,11 @@ export default function Page() {
     const nextDevice: DeviceRow = {
       id: editingId ?? "",
       deviceCode: form.deviceCode.trim(),
+      houseId: form.houseId,
       name: form.name.trim(),
-      houseName: form.houseName.trim(),
+      houseName:
+        houseOptions.find((house) => house.id === form.houseId)?.name ??
+        form.houseName.trim(),
       loadName: form.loadName.trim(),
       status: form.status,
       powerW: Number(form.powerW || 0),
@@ -383,10 +423,11 @@ export default function Page() {
           body: JSON.stringify({
             device_id: nextDevice.deviceCode,
             kode_perangkat: nextDevice.deviceCode,
+            rumah_id: nextDevice.houseId || null,
             nama_perangkat: nextDevice.name,
+            nama_beban: nextDevice.loadName,
             nama: nextDevice.name,
             nama_rumah: nextDevice.houseName,
-            nama_beban: nextDevice.loadName,
             status: nextDevice.status,
             daya: nextDevice.powerW,
             relay_status: nextDevice.relayStatus,
@@ -410,6 +451,8 @@ export default function Page() {
         method: "PUT",
         body: JSON.stringify({
           nama_perangkat: nextDevice.name,
+          nama_beban: nextDevice.loadName,
+          rumah_id: nextDevice.houseId || null,
           status_relay: nextDevice.relayStatus === "ON",
           status_online: nextDevice.status === "Online",
           catatan: nextDevice.note,
@@ -497,19 +540,33 @@ export default function Page() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="device-house">Rumah</Label>
-                  <Input
-                    id="device-house"
-                    value={form.houseName}
-                    onChange={(event) =>
+                  <Label>Rumah</Label>
+                  <Select
+                    value={form.houseId}
+                    onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        houseName: event.target.value,
+                        houseId: value,
+                        houseName:
+                          houseOptions.find((house) => house.id === value)
+                            ?.name ?? "",
                       }))
                     }
-                    placeholder="Contoh: Rumah Melati 12"
-                    required
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih rumah" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {houseOptions.map((house) => (
+                        <SelectItem key={house.id} value={house.id}>
+                          {house.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {houseError ? (
+                    <p className="text-xs text-destructive">{houseError}</p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-2">
