@@ -55,7 +55,7 @@ const data = {
       icon: TvMinimal,
       items: [
         {
-          title: "Realtime",
+          title: "Data Listrik",
           url: "/monitoring/realtime",
         },
         {

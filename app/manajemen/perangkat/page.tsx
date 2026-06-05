@@ -20,6 +20,19 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
+import type { ChartConfig } from "@/components/ui/chart"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Drawer,
   DrawerClose,
   DrawerContent,
@@ -64,12 +77,21 @@ import {
 } from "@/components/ui/table"
 import {
   Cpu,
+  Gauge,
   MoreHorizontal,
   PlugZap,
   Search,
   ToggleLeft,
+  Zap,
   Wifi,
 } from "lucide-react"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 type DeviceStatus = "Online" | "Offline"
 type RelayStatus = "ON" | "OFF"
@@ -103,6 +125,16 @@ type DeviceForm = {
 type HouseOption = {
   id: string
   name: string
+}
+
+type ElectricityLog = {
+  time: string
+  voltage: number
+  current: number
+  power: number
+  energy: number
+  frequency: number
+  powerFactor: number
 }
 
 const emptyForm: DeviceForm = {
@@ -171,9 +203,37 @@ function mapHouseOption(item: unknown, index: number): HouseOption {
   }
 }
 
+function mapElectricityLog(item: unknown, index: number): ElectricityLog {
+  return {
+    time: getString(item, ["time", "waktu", "waktu_baca", "created_at"], String(index + 1)),
+    voltage: getNumber(item, ["voltage", "tegangan"], 0),
+    current: getNumber(item, ["current", "arus"], 0),
+    power: getNumber(item, ["power", "daya"], 0),
+    energy: getNumber(item, ["energy", "energi", "kwh"], 0),
+    frequency: getNumber(item, ["frequency", "frekuensi"], 0),
+    powerFactor: getNumber(item, ["powerFactor", "power_factor", "faktor_daya", "pf"], 0),
+  }
+}
+
+const detailChartConfig = {
+  power: {
+    label: "Daya",
+    color: "hsl(var(--primary))",
+  },
+  voltage: {
+    label: "Tegangan",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig
+
 export default function Page() {
   const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>([])
   const [houseOptions, setHouseOptions] = React.useState<HouseOption[]>([])
+  const [detailOpen, setDetailOpen] = React.useState(false)
+  const [detailDevice, setDetailDevice] = React.useState<DeviceRow | null>(null)
+  const [detailRows, setDetailRows] = React.useState<ElectricityLog[]>([])
+  const [detailLoading, setDetailLoading] = React.useState(false)
+  const [detailError, setDetailError] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
   const [houseError, setHouseError] = React.useState("")
@@ -230,6 +290,31 @@ export default function Page() {
   React.useEffect(() => {
     void Promise.resolve().then(loadHouseOptions)
   }, [loadHouseOptions])
+
+  async function openDeviceDetail(device: DeviceRow) {
+    setDetailDevice(device)
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setDetailError("")
+    setDetailRows([])
+
+    try {
+      const payload = await apiRequest<unknown>(
+        `/api/data-listrik/history?deviceId=${encodeURIComponent(
+          device.deviceCode
+        )}&limit=30`
+      )
+      setDetailRows(extractArray(payload).map(mapElectricityLog).reverse())
+    } catch (error) {
+      setDetailError(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil detail realtime perangkat."
+      )
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
   const totalDevices = deviceRows.length
   const onlineCount = deviceRows.filter(
@@ -709,6 +794,122 @@ export default function Page() {
           })}
         </div>
 
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{detailDevice?.name ?? "Detail Perangkat"}</DialogTitle>
+              <DialogDescription>
+                {detailDevice
+                  ? `${detailDevice.deviceCode} - ${detailDevice.houseName || "Tanpa rumah"}`
+                  : "Data realtime perangkat"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {detailLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Mengambil data realtime perangkat...
+              </p>
+            ) : detailError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {detailError}
+              </p>
+            ) : (
+              <div className="grid gap-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    {
+                      label: "Tegangan",
+                      value: `${detailRows.at(-1)?.voltage ?? 0} V`,
+                      icon: Zap,
+                    },
+                    {
+                      label: "Energi",
+                      value: `${detailRows.at(-1)?.energy ?? 0} kWh`,
+                      icon: Gauge,
+                    },
+                    {
+                      label: "Arus",
+                      value: `${detailRows.at(-1)?.current ?? 0} A`,
+                      icon: Gauge,
+                    },
+                    {
+                      label: "Frekuensi",
+                      value: `${detailRows.at(-1)?.frequency ?? 0} Hz`,
+                      icon: Wifi,
+                    },
+                    {
+                      label: "Daya",
+                      value: `${detailRows.at(-1)?.power ?? 0} W`,
+                      icon: PlugZap,
+                    },
+                    {
+                      label: "Faktor Daya",
+                      value: String(detailRows.at(-1)?.powerFactor ?? 0),
+                      icon: ToggleLeft,
+                    },
+                  ].map((metric) => {
+                    const Icon = metric.icon
+
+                    return (
+                      <Card key={metric.label}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardDescription>{metric.label}</CardDescription>
+                          <Icon className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <CardTitle className="text-xl">{metric.value}</CardTitle>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Grafik Realtime</CardTitle>
+                    <CardDescription>
+                      Tren daya dan tegangan dari data terbaru perangkat.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {detailRows.length > 0 ? (
+                      <ChartContainer
+                        config={detailChartConfig}
+                        className="h-72 w-full"
+                      >
+                        <LineChart data={detailRows}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" />
+                          <YAxis />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line
+                            type="monotone"
+                            dataKey="power"
+                            stroke="var(--color-power)"
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="voltage"
+                            stroke="var(--color-voltage)"
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ChartContainer>
+                    ) : (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        Belum ada data realtime untuk perangkat ini.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Table */}
         <Card>
           <CardHeader className="border-b">
@@ -798,7 +999,11 @@ export default function Page() {
                 <TableBody>
                   {paginatedDeviceRows.length > 0 ? (
                     paginatedDeviceRows.map((device) => (
-                      <TableRow key={device.id}>
+                      <TableRow
+                        key={device.id}
+                        className="cursor-pointer"
+                        onClick={() => openDeviceDetail(device)}
+                      >
                         <TableCell className="font-mono text-sm">
                           {device.deviceCode}
                         </TableCell>
@@ -819,7 +1024,7 @@ export default function Page() {
 
                         <TableCell>{formatPower(device.powerW)}</TableCell>
 
-                        <TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
                           <div className="flex items-center gap-3">
                             <Switch
                               checked={device.relayStatus === "ON"}
@@ -842,7 +1047,10 @@ export default function Page() {
                           {device.lastUpdate}
                         </TableCell>
 
-                        <TableCell className="text-right">
+                        <TableCell
+                          className="text-right"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -856,6 +1064,14 @@ export default function Page() {
                             </DropdownMenuTrigger>
 
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => openDeviceDetail(device)}
+                              >
+                                Detail
+                              </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+
                               <DropdownMenuItem onClick={() => handleEdit(device)}>
                                 Edit
                               </DropdownMenuItem>
