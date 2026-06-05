@@ -36,12 +36,12 @@ const data = {
       icon: Layers,
       items: [
         {
-          title: "Rumah",
-          url: "/manajemen/rumah",
-        },
-        {
           title: "User",
           url: "/manajemen/user",
+        },
+        {
+          title: "Rumah",
+          url: "/manajem  en/rumah",
         },
         {
           title: "Perangkat",
