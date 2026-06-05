@@ -71,7 +71,7 @@ import {
   Wifi,
 } from "lucide-react"
 
-type DeviceStatus = "Online" | "Offline" | "Perlu Cek"
+type DeviceStatus = "Online" | "Offline"
 type RelayStatus = "ON" | "OFF"
 
 type DeviceRow = {
@@ -135,18 +135,6 @@ const initialDevices: DeviceRow[] = [
     lastUpdate: "43 menit lalu",
     note: "Perangkat tidak mengirim data.",
   },
-  {
-    id: "device-4",
-    deviceCode: "D90E12F34A56",
-    name: "ESP32 Garasi",
-    houseName: "Rumah Cempaka 03",
-    loadName: "Lampu Garasi",
-    status: "Perlu Cek",
-    powerW: 80,
-    relayStatus: "ON",
-    lastUpdate: "12 menit lalu",
-    note: "Perlu pengecekan koneksi sensor.",
-  },
 ]
 
 const emptyForm: DeviceForm = {
@@ -166,8 +154,6 @@ function getDeviceBadgeVariant(status: DeviceStatus) {
       return "default"
     case "Offline":
       return "destructive"
-    case "Perlu Cek":
-      return "outline"
     default:
       return "secondary"
   }
@@ -190,10 +176,6 @@ function normalizeDeviceStatus(status: string): DeviceStatus {
 
   if (normalized.includes("offline") || normalized.includes("mati")) {
     return "Offline"
-  }
-
-  if (normalized.includes("cek") || normalized.includes("warning")) {
-    return "Perlu Cek"
   }
 
   return "Online"
@@ -263,8 +245,8 @@ export default function Page() {
   const relayOnCount = deviceRows.filter(
     (device) => device.relayStatus === "ON"
   ).length
-  const attentionCount = deviceRows.filter(
-    (device) => device.status === "Offline" || device.status === "Perlu Cek"
+  const offlineCount = deviceRows.filter(
+    (device) => device.status === "Offline"
   ).length
 
   const filteredDeviceRows = React.useMemo(() => {
@@ -324,9 +306,9 @@ export default function Page() {
       icon: ToggleLeft,
     },
     {
-      label: "Perlu Cek",
-      value: attentionCount,
-      note: "Offline atau butuh pemeriksaan",
+      label: "Offline",
+      value: offlineCount,
+      note: "Perangkat tidak aktif mengirim data",
       icon: PlugZap,
     },
   ]
@@ -595,7 +577,6 @@ export default function Page() {
                     <SelectContent>
                       <SelectItem value="Online">Online</SelectItem>
                       <SelectItem value="Offline">Offline</SelectItem>
-                      <SelectItem value="Perlu Cek">Perlu Cek</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -748,7 +729,6 @@ export default function Page() {
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="Online">Online</SelectItem>
                     <SelectItem value="Offline">Offline</SelectItem>
-                    <SelectItem value="Perlu Cek">Perlu Cek</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

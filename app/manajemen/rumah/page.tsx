@@ -69,7 +69,7 @@ import {
   User,
 } from "lucide-react"
 
-type HouseStatus = "Aktif" | "Perlu Setup" | "Nonaktif"
+type HouseStatus = "Aktif" | "Nonaktif"
 
 type HouseRow = {
   id: string
@@ -116,15 +116,6 @@ const initialHouses: HouseRow[] = [
     note: "Perangkat sudah terhubung.",
   },
   {
-    id: "house-3",
-    name: "Rumah Anggrek 19",
-    owner: "Andi Pratama",
-    deviceCount: 0,
-    status: "Perlu Setup",
-    address: "Jl. Anggrek No. 19, Cimahi",
-    note: "Menunggu pemasangan perangkat.",
-  },
-  {
     id: "house-4",
     name: "Rumah Cempaka 03",
     owner: "Maya Putri",
@@ -157,8 +148,6 @@ function getHouseBadgeVariant(status: HouseStatus) {
   switch (status) {
     case "Aktif":
       return "default"
-    case "Perlu Setup":
-      return "outline"
     case "Nonaktif":
       return "secondary"
     default:
@@ -182,8 +171,7 @@ function mapHouseRow(item: unknown, index: number): HouseRow {
       getString(firstOwner, ["username", "name", "nama", "nama_user"]) ||
       getString(item, ["owner", "username", "nama_user"], "-"),
     deviceCount: getNumber(item, ["deviceCount", "jumlah_perangkat", "perangkat_count"], 0),
-    status:
-      status === "Nonaktif" || status === "Perlu Setup" ? status : "Aktif",
+    status: status === "Nonaktif" ? "Nonaktif" : "Aktif",
     address: getString(item, ["address", "alamat"], "-"),
     note: getString(item, ["note", "catatan", "keterangan"]),
   }
@@ -263,8 +251,8 @@ export default function Page() {
     (house) => house.status === "Aktif"
   ).length
 
-  const setupCount = houseRows.filter(
-    (house) => house.status === "Perlu Setup"
+  const inactiveCount = houseRows.filter(
+    (house) => house.status === "Nonaktif"
   ).length
 
   const totalDeviceCount = houseRows.reduce(
@@ -318,9 +306,9 @@ export default function Page() {
       icon: User,
     },
     {
-      label: "Perlu Setup",
-      value: setupCount,
-      note: "Rumah yang belum siap dipantau",
+      label: "Rumah Nonaktif",
+      value: inactiveCount,
+      note: "Rumah yang sedang dinonaktifkan",
       icon: PlugZap,
     },
     {
@@ -522,7 +510,6 @@ export default function Page() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Aktif">Aktif</SelectItem>
-                      <SelectItem value="Perlu Setup">Perlu Setup</SelectItem>
                       <SelectItem value="Nonaktif">Nonaktif</SelectItem>
                     </SelectContent>
                   </Select>
@@ -667,7 +654,6 @@ export default function Page() {
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="Aktif">Aktif</SelectItem>
-                    <SelectItem value="Perlu Setup">Perlu Setup</SelectItem>
                     <SelectItem value="Nonaktif">Nonaktif</SelectItem>
                   </SelectContent>
                 </Select>
