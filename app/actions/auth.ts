@@ -86,7 +86,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
   }
 
   await setSession(result.user)
-  redirect("/dashboard")
+  redirect(result.user.role === "user" ? "/user" : "/dashboard")
 }
 
 export async function signupAction(_state: AuthState, formData: FormData): Promise<AuthState> {
@@ -114,7 +114,7 @@ export async function signupAction(_state: AuthState, formData: FormData): Promi
   }
 
   await setSession(result.user)
-  redirect("/dashboard")
+  redirect("/user")
 }
 
 export async function logoutAction() {

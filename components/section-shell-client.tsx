@@ -1,6 +1,13 @@
 "use client"
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import { usePathname } from "next/navigation"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -96,20 +103,18 @@ export function SectionShellClient({
   const hideLoadingTimeout = useRef<number | null>(null)
   const [isRouteSettling, setIsRouteSettling] = useState(false)
 
-  useEffect(() => {
-    const showLoading = () => {
-      if (hideLoadingTimeout.current) {
-        window.clearTimeout(hideLoadingTimeout.current)
-      }
-
-      setIsRouteSettling(true)
+  const scheduleHideLoading = useCallback((delay = 300) => {
+    if (hideLoadingTimeout.current) {
+      window.clearTimeout(hideLoadingTimeout.current)
     }
 
-    window.addEventListener("app:navigation-start", showLoading)
+    hideLoadingTimeout.current = window.setTimeout(() => {
+      setIsRouteSettling(false)
+    }, delay)
+  }, [])
 
+  useEffect(() => {
     return () => {
-      window.removeEventListener("app:navigation-start", showLoading)
-
       if (hideLoadingTimeout.current) {
         window.clearTimeout(hideLoadingTimeout.current)
       }
@@ -117,33 +122,25 @@ export function SectionShellClient({
   }, [])
 
   useEffect(() => {
-    if (previousPathname.current === pathname) {
-      if (isRouteSettling) {
-        hideLoadingTimeout.current = window.setTimeout(() => {
-          setIsRouteSettling(false)
-        }, 300)
-      }
-
-      return
+    const showLoading = () => {
+      setIsRouteSettling(true)
+      scheduleHideLoading(350)
     }
 
-    previousPathname.current = pathname
-    setIsRouteSettling(true)
-
-    if (hideLoadingTimeout.current) {
-      window.clearTimeout(hideLoadingTimeout.current)
-    }
-
-    hideLoadingTimeout.current = window.setTimeout(() => {
-      setIsRouteSettling(false)
-    }, 300)
+    window.addEventListener("app:navigation-start", showLoading)
 
     return () => {
-      if (hideLoadingTimeout.current) {
-        window.clearTimeout(hideLoadingTimeout.current)
-      }
+      window.removeEventListener("app:navigation-start", showLoading)
     }
-  }, [pathname, isRouteSettling])
+  }, [scheduleHideLoading])
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      previousPathname.current = pathname
+      setIsRouteSettling(true)
+      scheduleHideLoading(300)
+    }
+  }, [pathname, scheduleHideLoading])
 
   return (
     <SidebarProvider>
