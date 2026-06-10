@@ -20,9 +20,9 @@ import {
   Zap,
 } from "lucide-react"
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   XAxis,
   YAxis,
 } from "recharts"
@@ -51,6 +51,8 @@ import {
 } from "@/components/ui/dialog"
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -99,11 +101,11 @@ type Prediction = {
 const chartConfig = {
   power: {
     label: "Daya",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-1)",
   },
   energy: {
     label: "Energi",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
@@ -191,7 +193,11 @@ function houseBelongsToUser(item: unknown, user: SessionUser) {
 }
 
 function mapDevice(item: unknown, index: number): Device {
-  const relayOn = getBoolean(item, ["relay", "relay_status", "status_relay"], false)
+  const relayOn = getBoolean(
+    item,
+    ["relay", "relayStatus", "statusRelay", "relay_status", "status_relay"],
+    false
+  )
   const nestedHouse = getValue(item, ["rumah", "house"])
   const rawHouseName = getValue(item, ["houseName", "nama_rumah", "rumah"])
   const houseName =
@@ -470,6 +476,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
           status_relay: nextChecked,
         }),
       })
+      await loadMainData()
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Gagal mengubah relay perangkat."
@@ -754,18 +761,36 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                   className="h-56 w-full"
                   initialDimension={{ width: 360, height: 220 }}
                 >
-                  <LineChart data={logs.slice().reverse()}>
+                  <AreaChart
+                    accessibilityLayer
+                    data={logs.slice().reverse()}
+                    margin={{
+                      left: 12,
+                      right: 12,
+                    }}
+                  >
                     <CartesianGrid vertical={false} />
-                    <XAxis dataKey="time" tickMargin={8} />
-                    <YAxis width={36} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      dataKey="power"
-                      stroke="var(--color-power)"
-                      strokeWidth={2}
-                      dot={false}
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={18}
                     />
-                  </LineChart>
+                    <YAxis width={36} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent indicator="line" />}
+                    />
+                    <Area
+                      dataKey="power"
+                      type="natural"
+                      fill="var(--color-power)"
+                      fillOpacity={0.35}
+                      stroke="var(--color-power)"
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </AreaChart>
                 </ChartContainer>
               </CardContent>
             </Card>

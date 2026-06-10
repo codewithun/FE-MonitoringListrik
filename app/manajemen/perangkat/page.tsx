@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/card"
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
@@ -86,9 +88,9 @@ import {
   Wifi,
 } from "lucide-react"
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   XAxis,
   YAxis,
 } from "recharts"
@@ -128,6 +130,7 @@ type HouseOption = {
 }
 
 type ElectricityLog = {
+  deviceId: string
   time: string
   voltage: number
   current: number
@@ -179,7 +182,11 @@ function normalizeDeviceStatus(status: string): DeviceStatus {
 }
 
 function mapDeviceRow(item: unknown, index: number): DeviceRow {
-  const relayOn = getBoolean(item, ["relay", "relay_status", "status_relay"], false)
+  const relayOn = getBoolean(
+    item,
+    ["relay", "relayStatus", "statusRelay", "relay_status", "status_relay"],
+    false
+  )
 
   return {
     id: getString(item, ["id", "id_perangkat", "perangkat_id"], `device-${index}`),
@@ -205,6 +212,7 @@ function mapHouseOption(item: unknown, index: number): HouseOption {
 
 function mapElectricityLog(item: unknown, index: number): ElectricityLog {
   return {
+    deviceId: getString(item, ["deviceId", "device_id", "kode_perangkat", "mac_address"], ""),
     time: getString(item, ["time", "waktu", "waktu_baca", "created_at"], String(index + 1)),
     voltage: getNumber(item, ["voltage", "tegangan"], 0),
     current: getNumber(item, ["current", "arus"], 0),
@@ -215,14 +223,49 @@ function mapElectricityLog(item: unknown, index: number): ElectricityLog {
   }
 }
 
+function getReadingTimeValue(reading: ElectricityLog) {
+  const parsed = new Date(reading.time).getTime()
+
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function mergeLatestReadings(
+  devices: DeviceRow[],
+  readings: ElectricityLog[]
+) {
+  const latestByDeviceId = new Map<string, ElectricityLog>()
+
+  for (const reading of readings) {
+    if (!reading.deviceId) continue
+
+    const current = latestByDeviceId.get(reading.deviceId)
+
+    if (!current || getReadingTimeValue(reading) >= getReadingTimeValue(current)) {
+      latestByDeviceId.set(reading.deviceId, reading)
+    }
+  }
+
+  return devices.map((device) => {
+    const latestReading = latestByDeviceId.get(device.deviceCode)
+
+    if (!latestReading) return device
+
+    return {
+      ...device,
+      powerW: latestReading.power,
+      lastUpdate: latestReading.time,
+    }
+  })
+}
+
 const detailChartConfig = {
   power: {
     label: "Daya",
-    color: "hsl(var(--primary))",
+    color: "var(--chart-1)",
   },
   voltage: {
     label: "Tegangan",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
@@ -254,8 +297,40 @@ export default function Page() {
     setErrorMessage("")
 
     try {
-      const payload = await apiRequest<unknown>("/api/perangkat")
-      setDeviceRows(extractArray(payload).map(mapDeviceRow))
+      const [devicePayload, historyPayload] = await Promise.all([
+        apiRequest<unknown>("/api/perangkat"),
+        apiRequest<unknown>("/api/data-listrik/history?limit=200").catch(
+          () => null
+        ),
+      ])
+      const nextDevices = extractArray(devicePayload).map(mapDeviceRow)
+      const globalReadings = extractArray(historyPayload).map(mapElectricityLog)
+      const globalDeviceIds = new Set(
+        globalReadings.map((reading) => reading.deviceId).filter(Boolean)
+      )
+      const missingDevices = nextDevices.filter(
+        (device) =>
+          device.deviceCode &&
+          device.deviceCode !== "-" &&
+          !globalDeviceIds.has(device.deviceCode)
+      )
+      const perDeviceReadings = await Promise.all(
+        missingDevices.map((device) =>
+          apiRequest<unknown>(
+            `/api/data-listrik/history?deviceId=${encodeURIComponent(
+              device.deviceCode
+            )}&limit=1`
+          )
+            .then((payload) => extractArray(payload).map(mapElectricityLog))
+            .catch(() => [])
+        )
+      )
+      const latestReadings = [
+        ...globalReadings,
+        ...perDeviceReadings.flat(),
+      ]
+
+      setDeviceRows(mergeLatestReadings(nextDevices, latestReadings))
       setCurrentPage(1)
     } catch (error) {
       setErrorMessage(
@@ -464,6 +539,7 @@ export default function Page() {
           relay_status: nextStatus,
         }),
       })
+      await loadDevices()
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Gagal mengubah relay."
@@ -877,26 +953,43 @@ export default function Page() {
                         config={detailChartConfig}
                         className="h-72 w-full"
                       >
-                        <LineChart data={detailRows}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="time" />
+                        <AreaChart
+                          accessibilityLayer
+                          data={detailRows}
+                          margin={{
+                            left: 12,
+                            right: 12,
+                          }}
+                        >
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="time"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            minTickGap={24}
+                          />
                           <YAxis />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Line
+                          <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent indicator="line" />}
+                          />
+                          <Area
                             type="monotone"
                             dataKey="power"
+                            fill="var(--color-power)"
+                            fillOpacity={0.35}
                             stroke="var(--color-power)"
-                            strokeWidth={2}
-                            dot={false}
                           />
-                          <Line
+                          <Area
                             type="monotone"
                             dataKey="voltage"
+                            fill="var(--color-voltage)"
+                            fillOpacity={0.2}
                             stroke="var(--color-voltage)"
-                            strokeWidth={2}
-                            dot={false}
                           />
-                        </LineChart>
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </AreaChart>
                       </ChartContainer>
                     ) : (
                       <p className="py-8 text-center text-sm text-muted-foreground">

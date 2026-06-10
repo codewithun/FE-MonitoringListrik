@@ -6,14 +6,23 @@ type ApiOptions = RequestInit & {
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-  })
+  const method = options.method ?? "GET"
+  const requestUrl = `${API_BASE_URL}${path}`
+  let response: Response
+
+  try {
+    response = await fetchWithRetry(requestUrl, {
+      ...options,
+      method,
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
+    })
+  } catch (error) {
+    throw new Error(getNetworkErrorMessage(path, error))
+  }
 
   const text = await response.text()
   const data = text ? parseJson(text) : null
@@ -27,6 +36,55 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}) {
   }
 
   return data as T
+}
+
+async function fetchWithRetry(url: string, options: ApiOptions) {
+  const retryCount = options.method === "GET" ? 1 : 0
+  let lastError: unknown
+
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    try {
+      return await fetch(url, options)
+    } catch (error) {
+      lastError = error
+
+      if (attempt < retryCount) {
+        await wait(400)
+      }
+    }
+  }
+
+  throw lastError
+}
+
+function wait(duration: number) {
+  return new Promise((resolve) => setTimeout(resolve, duration))
+}
+
+function getNetworkErrorMessage(path: string, error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : ""
+  const isGenericFetchError =
+    !rawMessage ||
+    rawMessage === "Load failed" ||
+    rawMessage === "Failed to fetch" ||
+    rawMessage === "NetworkError when attempting to fetch resource."
+
+  if (!isGenericFetchError) {
+    return rawMessage
+  }
+
+  return `Tidak bisa menghubungi backend untuk ${path}. Cek koneksi, CORS/SSL, atau pastikan ${API_BASE_URL} bisa diakses dari browser.`
+}
+
+export async function rawApiRequest(path: string, options: ApiOptions = {}) {
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
+  })
 }
 
 export function extractArray<T = unknown>(payload: unknown): T[] {

@@ -1,9 +1,16 @@
 "use client"
 
-import { useMemo, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import { SectionShellClient } from "@/components/section-shell-client"
 import { SESSION_COOKIE, type SessionUser } from "@/lib/auth-constants"
+
+const fallbackUser: SessionUser = {
+  id: "guest",
+  username: "User",
+  email: "Belum login",
+  role: "user",
+}
 
 function decodeBase64Url(value: string) {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/")
@@ -13,13 +20,6 @@ function decodeBase64Url(value: string) {
 }
 
 function getSessionFromCookie(): SessionUser {
-  const fallbackUser: SessionUser = {
-    id: "guest",
-    username: "User",
-    email: "Belum login",
-    role: "user",
-  }
-
   if (typeof document === "undefined") {
     return fallbackUser
   }
@@ -41,7 +41,11 @@ function getSessionFromCookie(): SessionUser {
 }
 
 export function SectionShell({ children }: { children: ReactNode }) {
-  const user = useMemo(() => getSessionFromCookie(), [])
+  const [user, setUser] = useState<SessionUser>(fallbackUser)
+
+  useEffect(() => {
+    setUser(getSessionFromCookie())
+  }, [])
 
   return <SectionShellClient user={user}>{children}</SectionShellClient>
 }

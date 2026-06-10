@@ -27,15 +27,17 @@ import {
 } from "@/components/ui/table"
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import {
+  Area,
+  AreaChart,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -298,11 +300,11 @@ const monthlyUsage: MonthlyUsage[] = [
 const chartConfig = {
   energyKwh: {
     label: "Energi",
-    color: "hsl(var(--primary))",
+    color: "var(--chart-1)",
   },
   cost: {
     label: "Biaya",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
@@ -698,17 +700,34 @@ export default function Page() {
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-80 w-full">
-                <BarChart data={filteredHistory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
+                <BarChart
+                  accessibilityLayer
+                  data={filteredHistory}
+                  margin={{
+                    left: 12,
+                    right: 12,
+                  }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    minTickGap={18}
+                  />
                   <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="line" />}
+                  />
                   <Bar
                     dataKey="energyKwh"
                     fill="var(--color-energyKwh)"
                     name="Energi"
                     radius={[8, 8, 0, 0]}
                   />
+                  <ChartLegend content={<ChartLegendContent />} />
                 </BarChart>
               </ChartContainer>
             </CardContent>
@@ -723,20 +742,36 @@ export default function Page() {
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-80 w-full">
-                <LineChart data={filteredMonthlyUsage}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                <AreaChart
+                  accessibilityLayer
+                  data={filteredMonthlyUsage}
+                  margin={{
+                    left: 12,
+                    right: 12,
+                  }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
                   <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="line" />}
+                  />
+                  <Area
+                    type="natural"
                     dataKey="energyKwh"
+                    fill="var(--color-energyKwh)"
+                    fillOpacity={0.35}
                     stroke="var(--color-energyKwh)"
-                    strokeWidth={2}
-                    dot
                     name="Energi"
                   />
-                </LineChart>
+                  <ChartLegend content={<ChartLegendContent />} />
+                </AreaChart>
               </ChartContainer>
             </CardContent>
           </Card>
