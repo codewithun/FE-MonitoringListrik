@@ -130,7 +130,8 @@ export function getBoolean(value: unknown, keys: string[], fallback = false) {
   if (typeof found === "boolean") return found
   if (typeof found === "number") return found === 1
   if (typeof found === "string") {
-    return ["1", "true", "on", "nyala"].includes(found.toLowerCase())
+    const lower = found.toLowerCase().trim()
+    return ["1", "true", "on", "nyala", "yes", "yes"].includes(lower)
   }
 
   return fallback

@@ -94,6 +94,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import QRCode from "react-qr-code"
 
 type DeviceStatus = "Online" | "Offline"
 type RelayStatus = "ON" | "OFF"
@@ -140,6 +141,12 @@ type ElectricityLog = {
   powerFactor: number
 }
 
+type BarcodePreview = {
+  deviceCode: string
+  name: string
+  houseName: string
+}
+
 const emptyForm: DeviceForm = {
   deviceCode: "",
   houseId: "",
@@ -184,7 +191,7 @@ function normalizeDeviceStatus(status: string): DeviceStatus {
 function mapDeviceRow(item: unknown, index: number): DeviceRow {
   const relayOn = getBoolean(
     item,
-    ["relay", "relayStatus", "statusRelay", "relay_status", "status_relay"],
+    ["relay", "relayStatus", "statusRelay", "relay_status", "status_relay", "is_relay", "isRelay"],
     false
   )
 
@@ -213,7 +220,7 @@ function mapHouseOption(item: unknown, index: number): HouseOption {
 function mapElectricityLog(item: unknown, index: number): ElectricityLog {
   return {
     deviceId: getString(item, ["deviceId", "device_id", "kode_perangkat", "mac_address"], ""),
-    time: getString(item, ["time", "waktu", "waktu_baca", "created_at"], String(index + 1)),
+    time: getString(item, ["time", "waktu", "waktu_baca", "created_at"], "-"),
     voltage: getNumber(item, ["voltage", "tegangan"], 0),
     current: getNumber(item, ["current", "arus"], 0),
     power: getNumber(item, ["power", "daya"], 0),
@@ -252,7 +259,7 @@ function mergeLatestReadings(
 
     return {
       ...device,
-      powerW: latestReading.power,
+      powerW: device.relayStatus === "OFF" ? 0 : latestReading.power,
       lastUpdate: latestReading.time,
     }
   })
@@ -274,6 +281,8 @@ export default function Page() {
   const [houseOptions, setHouseOptions] = React.useState<HouseOption[]>([])
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [detailDevice, setDetailDevice] = React.useState<DeviceRow | null>(null)
+  const qrCodeWrapRef = React.useRef<HTMLDivElement>(null)
+  const [barcodePreview, setBarcodePreview] = React.useState<BarcodePreview | null>(null)
   const [detailRows, setDetailRows] = React.useState<ElectricityLog[]>([])
   const [detailLoading, setDetailLoading] = React.useState(false)
   const [detailError, setDetailError] = React.useState("")
@@ -541,11 +550,79 @@ export default function Page() {
       })
       await loadDevices()
     } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "Gagal mengubah relay."
-      )
-      void loadDevices()
+      const errorMessage = error instanceof Error ? error.message : "Gagal mengubah relay."
+      window.alert(errorMessage)
+      await loadDevices()
     }
+  }
+
+  async function downloadBarcodePreview() {
+    const wrapper = qrCodeWrapRef.current
+    const svgElement = wrapper?.querySelector("svg")
+
+    if (!svgElement || !barcodePreview) return
+
+    const serializer = new XMLSerializer()
+    const svgText = serializer.serializeToString(svgElement)
+    const normalizedSvg = svgText.includes("xmlns")
+      ? svgText
+      : svgText.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"')
+
+    const svgBlob = new Blob([normalizedSvg], {
+      type: "image/svg+xml;charset=utf-8",
+    })
+    const svgUrl = URL.createObjectURL(svgBlob)
+    const image = new Image()
+
+    image.onload = () => {
+      const canvas = document.createElement("canvas")
+      const size = 1024
+      const footerHeight = 180
+      canvas.width = size
+      canvas.height = size + footerHeight
+
+      const context = canvas.getContext("2d")
+
+      if (!context) {
+        URL.revokeObjectURL(svgUrl)
+        return
+      }
+
+      context.fillStyle = "#ffffff"
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(image, 128, 80, size - 256, size - 256)
+
+      context.fillStyle = "#111827"
+      context.textAlign = "center"
+      context.textBaseline = "top"
+
+      context.font = "bold 44px Arial"
+      context.fillText("ID Alat", canvas.width / 2, size + 20)
+
+      context.font = "bold 34px Arial"
+      context.fillText(barcodePreview.deviceCode, canvas.width / 2, size + 78)
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          URL.revokeObjectURL(svgUrl)
+          return
+        }
+
+        const downloadUrl = URL.createObjectURL(blob)
+        const anchor = document.createElement("a")
+        anchor.href = downloadUrl
+        anchor.download = `qr-${barcodePreview.deviceCode}.png`
+        anchor.click()
+        URL.revokeObjectURL(downloadUrl)
+        URL.revokeObjectURL(svgUrl)
+      }, "image/png")
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(svgUrl)
+    }
+
+    image.src = svgUrl
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -596,6 +673,11 @@ export default function Page() {
           }),
         })
         await loadDevices()
+        setBarcodePreview({
+          deviceCode: nextDevice.deviceCode,
+          name: nextDevice.name || `Perangkat ${nextDevice.deviceCode}`,
+          houseName: nextDevice.houseName || "-",
+        })
         resetForm()
         setOpen(false)
         return
@@ -1003,6 +1085,59 @@ export default function Page() {
           </DialogContent>
         </Dialog>
 
+        <Dialog
+          open={barcodePreview !== null}
+          onOpenChange={(open) => {
+            if (!open) setBarcodePreview(null)
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code Perangkat</DialogTitle>
+              <DialogDescription>
+                Simpan QR code ini untuk ditempel pada perangkat. Saat dipindai di
+                menu user, ID alat akan terisi otomatis.
+              </DialogDescription>
+            </DialogHeader>
+
+            {barcodePreview ? (
+              <div className="space-y-4">
+                <div ref={qrCodeWrapRef} className="space-y-3 rounded-lg border bg-white p-6">
+                  <div className="flex items-center justify-center">
+                    <QRCode
+                      value={barcodePreview.deviceCode}
+                      size={192}
+                      fgColor="#111827"
+                      bgColor="#ffffff"
+                    />
+                  </div>
+                  <div className="text-center text-sm">
+                    <div className="text-muted-foreground">ID Alat</div>
+                    <div className="font-mono text-base font-semibold tracking-wide">
+                      {barcodePreview.deviceCode}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Nama</span>
+                    <span className="font-medium">{barcodePreview.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Rumah</span>
+                    <span className="font-medium">{barcodePreview.houseName}</span>
+                  </div>
+                </div>
+
+                <Button type="button" className="w-full" onClick={downloadBarcodePreview}>
+                  Unduh Gambar QR
+                </Button>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
         {/* Table */}
         <Card>
           <CardHeader className="border-b">
@@ -1161,6 +1296,19 @@ export default function Page() {
                                 onClick={() => openDeviceDetail(device)}
                               >
                                 Detail
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setBarcodePreview({
+                                    deviceCode: device.deviceCode,
+                                    name: device.name,
+                                    houseName: device.houseName,
+                                  })
+                                }
+                                disabled={!device.deviceCode || device.deviceCode === "-"}
+                              >
+                                QR Code
                               </DropdownMenuItem>
 
                               <DropdownMenuSeparator />

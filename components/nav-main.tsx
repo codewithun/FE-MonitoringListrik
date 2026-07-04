@@ -72,7 +72,10 @@ export function NavMain({
                   activePath === item.url || activePath.startsWith(`${item.url}/`)
                 }
               >
-                <Link href={item.url} onClick={showNavigationLoading}>
+                <Link 
+                  href={item.items?.length ? item.items[0].url : item.url} 
+                  onClick={showNavigationLoading}
+                >
                   <item.icon />
                   <span>{item.title}</span>
                 </Link>
@@ -89,7 +92,7 @@ export function NavMain({
                     <SidebarMenuSub>
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
+                          <SidebarMenuSubButton asChild isActive={activePath === subItem.url}>
                             <Link
                               href={subItem.url}
                               onClick={showNavigationLoading}

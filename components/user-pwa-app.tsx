@@ -286,7 +286,7 @@ function mapElectricityLog(item: unknown, index: number): ElectricityLog {
   const rawTime = getString(
     item,
     ["time", "waktu", "waktu_baca", "created_at", "timestamp"],
-    String(index + 1)
+    "-"
   )
 
   return {
@@ -500,12 +500,8 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     try {
       const payload = await apiRequest<unknown>(`/api/data-listrik/history${query}`)
       setLogs(extractArray(payload).map(mapElectricityLog))
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil data realtime terbaru."
-      )
+    } catch {
+      // Ignore background poll errors to prevent Next.js error overlay in dev mode
     }
   }, [selectedDeviceId])
 
@@ -951,7 +947,6 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                       {devices.length} perangkat terhubung
                     </p>
                   </div>
-                  <Badge variant="outline">{filteredDevices.length}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

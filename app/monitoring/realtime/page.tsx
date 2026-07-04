@@ -88,12 +88,8 @@ export default function Page() {
       setElectricityRows(extractArray(payload).map(mapElectricityLog))
       setErrorMessage("")
       setLastSync(formatTime(new Date().toISOString()))
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil data listrik terbaru."
-      )
+    } catch {
+      // Ignore background poll errors to prevent Next.js error overlay
     } finally {
       setIsLoading(false)
     }
