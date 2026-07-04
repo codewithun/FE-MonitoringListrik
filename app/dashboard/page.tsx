@@ -60,6 +60,7 @@ type DeviceStatus = "Online" | "Offline"
 type Device = {
   id: string
   deviceCode: string
+  houseId: string
   name: string
   houseName: string
   loadName: string
@@ -70,6 +71,7 @@ type Device = {
 type ElectricityLog = {
   id: string
   deviceId: string
+  houseId: string
   deviceName: string
   houseName: string
   time: string
@@ -112,6 +114,7 @@ function mapDevice(item: unknown, index: number): Device {
   return {
     id: getString(item, ["id", "id_perangkat", "perangkat_id"], `device-${index}`),
     deviceCode: getString(item, ["deviceCode", "device_id", "kode_perangkat", "mac_address"], "-"),
+    houseId: getString(item, ["houseId", "rumah_id", "id_rumah"], ""),
     name: getString(item, ["name", "nama", "nama_perangkat"], "-"),
     houseName: getString(item, ["houseName", "nama_rumah", "rumah"], "-"),
     loadName: getString(item, ["loadName", "nama_beban", "beban"], "-"),
@@ -130,6 +133,7 @@ function mapElectricityLog(item: unknown, index: number): ElectricityLog {
   return {
     id: getString(item, ["id"], `${rawTime}-${index}`),
     deviceId: getString(item, ["deviceId", "device_id", "kode_perangkat", "mac_address"], ""),
+    houseId: getString(item, ["houseId", "rumah_id", "id_rumah"], ""),
     deviceName: getString(item, ["nama_perangkat", "deviceName"], "-"),
     houseName: getString(item, ["nama_rumah", "houseName"], "-"),
     time: rawTime,
@@ -225,11 +229,15 @@ export default function Page() {
         apiRequest<unknown>("/api/prediksi-bulanan").catch(() => null),
       ])
 
-      setDevices(extractArray(devicePayload).map(mapDevice))
+      const deviceRows = extractArray(devicePayload).map(mapDevice)
+      const logRows = extractArray(historyPayload).map(mapElectricityLog)
+      const endpointPredictions = extractArray(predictionPayload).map(mapPrediction)
+
+      setDevices(deviceRows)
       setHouseCount(extractArray(housePayload).length)
       setUserCount(extractArray(userPayload).length)
-      setLogs(extractArray(historyPayload).map(mapElectricityLog))
-      setPredictions(extractArray(predictionPayload).map(mapPrediction))
+      setLogs(logRows)
+      setPredictions(endpointPredictions)
       setLastSync(formatTime(new Date().toISOString()))
     } catch (error) {
       setErrorMessage(
@@ -340,17 +348,17 @@ export default function Page() {
           </Card>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
             const Icon = stat.icon
 
             return (
-              <Card key={stat.label}>
+              <Card key={stat.label} className="h-full min-h-32">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                   <CardDescription>{stat.label}</CardDescription>
                   <Icon className="size-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-1 flex-col justify-end">
                   <CardTitle className="text-2xl">{stat.value}</CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">{stat.note}</p>
                 </CardContent>
@@ -359,27 +367,29 @@ export default function Page() {
           })}
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-          <Card>
+        <div className="grid items-stretch gap-4 xl:grid-cols-[1.6fr_1fr]">
+          <Card className="h-full">
             <CardHeader className="border-b">
               <CardTitle>Grafik Daya Realtime</CardTitle>
               <CardDescription>
                 Data terbaru dari histori listrik yang tersimpan di database.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="flex flex-1 p-4 md:p-5">
               {chartRows.length > 0 ? (
                 <ChartContainer
                   config={chartConfig}
-                  className="h-80 w-full"
-                  initialDimension={{ width: 760, height: 320 }}
+                  className="h-[350px] w-full md:h-[410px]"
+                  initialDimension={{ width: 900, height: 410 }}
                 >
                   <AreaChart
                     accessibilityLayer
                     data={chartRows}
                     margin={{
-                      left: 12,
-                      right: 12,
+                      top: 4,
+                      left: 4,
+                      right: 8,
+                      bottom: 0,
                     }}
                   >
                     <CartesianGrid vertical={false} />
@@ -390,21 +400,35 @@ export default function Page() {
                       tickMargin={8}
                       minTickGap={24}
                     />
-                    <YAxis width={44} />
+                    <YAxis
+                      yAxisId="power"
+                      width={36}
+                      domain={[0, "auto"]}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="voltage"
+                      orientation="right"
+                      domain={[0, "auto"]}
+                      hide
+                    />
                     <ChartTooltip
                       cursor={false}
                       content={<ChartTooltipContent indicator="line" />}
                     />
                     <Area
+                      yAxisId="power"
                       dataKey="power"
-                      type="natural"
+                      type="monotone"
                       fill="var(--color-power)"
                       fillOpacity={0.35}
                       stroke="var(--color-power)"
                     />
                     <Area
+                      yAxisId="voltage"
                       dataKey="voltage"
-                      type="natural"
+                      type="monotone"
                       fill="var(--color-voltage)"
                       fillOpacity={0.2}
                       stroke="var(--color-voltage)"
@@ -413,20 +437,20 @@ export default function Page() {
                   </AreaChart>
                 </ChartContainer>
               ) : (
-                <div className="flex h-80 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+                <div className="flex h-[350px] w-full items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground md:h-[410px]">
                   Belum ada data listrik terbaru.
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <div className="grid gap-4">
+          <div className="grid content-start gap-4 md:grid-cols-2 xl:grid-cols-1">
             <Card>
               <CardHeader className="border-b">
                 <CardTitle>Lingkup Sistem</CardTitle>
                 <CardDescription>Data master yang terdaftar.</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 pt-6">
+              <CardContent className="grid gap-4 pt-2">
                 <div className="flex items-center justify-between rounded-md border p-3">
                   <div className="flex items-center gap-3">
                     <Users className="size-4 text-muted-foreground" />
@@ -456,14 +480,14 @@ export default function Page() {
                 <CardTitle>Prediksi Biaya</CardTitle>
                 <CardDescription>Estimasi dari endpoint prediksi bulanan.</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="pt-2">
                 <p className="text-sm text-muted-foreground">
                   {prediction?.label || "Belum ada prediksi"}
                 </p>
                 <p className="mt-2 text-3xl font-semibold">
                   {formatCurrency(prediction?.cost ?? 0)}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 pb-4 text-sm text-muted-foreground">
                   Estimasi energi {formatNumber(prediction?.energy ?? 0, "kWh")}.
                 </p>
               </CardContent>

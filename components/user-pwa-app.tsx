@@ -14,8 +14,10 @@ import {
   Home,
   KeyRound,
   LogOut,
+  Moon,
   Plus,
   Smartphone,
+  Sun,
   Upload,
   Zap,
 } from "lucide-react"
@@ -40,6 +42,17 @@ import {
 import type { SessionUser } from "@/lib/auth-constants"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -59,14 +72,52 @@ import {
 } from "@/components/ui/chart"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 
 type TabKey = "home" | "prediction"
 type RelayStatus = "ON" | "OFF"
+type PwaTheme = "light" | "dark"
+type AddMode = "house" | "device"
+
+const LIGHT_PWA_THEME = {
+  "--background": "#F8FAFC",
+  "--foreground": "#0F172A",
+  "--card": "#FFFFFF",
+  "--card-foreground": "#0F172A",
+  "--popover": "#FFFFFF",
+  "--popover-foreground": "#0F172A",
+  "--primary": "#2563EB",
+  "--primary-foreground": "#FFFFFF",
+  "--secondary": "#EFF6FF",
+  "--secondary-foreground": "#1E3A8A",
+  "--muted": "#F1F5F9",
+  "--muted-foreground": "#64748B",
+  "--accent": "#EFF6FF",
+  "--accent-foreground": "#1E3A8A",
+  "--destructive": "#DC2626",
+  "--border": "#E2E8F0",
+  "--input": "#E2E8F0",
+  "--ring": "#2563EB",
+  "--chart-1": "#2563EB",
+  "--chart-2": "#16A34A",
+  "--chart-3": "#DC2626",
+  "--chart-4": "#7C3AED",
+  "--chart-5": "#F59E0B",
+} as React.CSSProperties
 
 type House = {
   id: string
   name: string
+  address: string
+  note: string
 }
 
 type Device = {
@@ -109,10 +160,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-function mapHouse(item: unknown, index: number): House {
+function mapHouse(item: unknown, _index: number): House {
   return {
-    id: getString(item, ["id", "id_rumah", "rumah_id"], `house-${index}`),
+    id: getString(item, ["id", "id_rumah", "rumah_id"], ""),
     name: getString(item, ["name", "nama", "nama_rumah"], "-"),
+    address: getString(item, ["address", "alamat"], ""),
+    note: getString(item, ["note", "catatan", "keterangan", "deskripsi"], ""),
   }
 }
 
@@ -125,11 +178,13 @@ function extractRelationArray(value: unknown) {
   return []
 }
 
-function mapUserHouse(item: unknown, index: number): House {
+function mapUserHouse(item: unknown, _index: number): House {
   if (!isRecord(item)) {
     return {
       id: "",
       name: "-",
+      address: "",
+      note: "",
     }
   }
 
@@ -142,12 +197,14 @@ function mapUserHouse(item: unknown, index: number): House {
 
   if (directHouseId || directHouseName) {
     return {
-      id: directHouseId || `house-${index}`,
+      id: directHouseId,
       name: directHouseName || "-",
+      address: getString(item, ["address", "alamat"], ""),
+      note: getString(item, ["note", "catatan", "keterangan", "deskripsi"], ""),
     }
   }
 
-  return mapHouse(item, index)
+  return mapHouse(item, _index)
 }
 
 function getHousesFromUserPayload(payload: unknown) {
@@ -172,14 +229,22 @@ function getHousesFromUserPayload(payload: unknown) {
 
   return [
     {
-      id: directHouseId || "house-0",
+      id: directHouseId,
       name: directHouseName || "-",
+      address: getString(source, ["address", "alamat"], ""),
+      note: getString(source, ["note", "catatan", "keterangan", "deskripsi"], ""),
     },
   ]
 }
 
 function idsMatch(first: string, second: string) {
   return first.trim() !== "" && String(first) === String(second)
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
 }
 
 function houseBelongsToUser(item: unknown, user: SessionUser) {
@@ -288,25 +353,58 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   const [selectedDeviceId, setSelectedDeviceId] = React.useState("")
   const [logs, setLogs] = React.useState<ElectricityLog[]>([])
   const [predictions, setPredictions] = React.useState<Prediction[]>([])
+  const [deviceSearch, setDeviceSearch] = React.useState("")
   const [deviceCode, setDeviceCode] = React.useState("")
+  const [deviceName, setDeviceName] = React.useState("")
+  const [deviceLoadName, setDeviceLoadName] = React.useState("")
+  const [selectedHouseForDeviceId, setSelectedHouseForDeviceId] = React.useState("")
+  const [houseName, setHouseName] = React.useState("")
+  const [houseAddress, setHouseAddress] = React.useState("")
+  const [houseNote, setHouseNote] = React.useState("")
+  const [profileHouseId, setProfileHouseId] = React.useState("")
+  const [profileHouseName, setProfileHouseName] = React.useState("")
+  const [profileHouseAddress, setProfileHouseAddress] = React.useState("")
+  const [profileHouseNote, setProfileHouseNote] = React.useState("")
   const [phone, setPhone] = React.useState("")
   const [message, setMessage] = React.useState("")
   const [isBusy, setIsBusy] = React.useState(false)
   const [isProfileOpen, setIsProfileOpen] = React.useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = React.useState(false)
   const [isAddDeviceOpen, setIsAddDeviceOpen] = React.useState(false)
+  const [isMissingHouseAlertOpen, setIsMissingHouseAlertOpen] = React.useState(false)
+  const [deviceAlertMessage, setDeviceAlertMessage] = React.useState("")
+  const [addMode, setAddMode] = React.useState<AddMode>("device")
   const [isScanning, setIsScanning] = React.useState(false)
   const [scanError, setScanError] = React.useState("")
+  const [pwaTheme, setPwaTheme] = React.useState<PwaTheme>("light")
 
   const selectedDevice = devices.find((device) => device.deviceId === selectedDeviceId)
   const latestLog = logs[0]
   const hasLinkedHouse = houses.length > 0
+  const filteredDevices = React.useMemo(() => {
+    const query = deviceSearch.trim().toLowerCase()
+
+    if (!query) return devices
+
+    return devices.filter((device) =>
+      [
+        device.name,
+        device.deviceId,
+        device.houseName,
+        device.relayStatus,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    )
+  }, [devices, deviceSearch])
   const avatarInitials = user.username
     .split(" ")
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
     .toUpperCase() || "U"
+  const pwaThemeStyle = pwaTheme === "light" ? LIGHT_PWA_THEME : undefined
 
   const switchTab = React.useCallback((tab: TabKey) => {
     setActiveTab(tab)
@@ -361,6 +459,24 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
           ? current
           : nextDevices[0]?.deviceId || ""
       )
+      setSelectedHouseForDeviceId((current) =>
+        nextHouses.some((house) => house.id === current)
+          ? current
+          : nextHouses[0]?.id || ""
+      )
+      setIsMissingHouseAlertOpen((current) =>
+        current ? current : nextHouses.length === 0
+      )
+      const profileHouse =
+        nextHouses.find((house) => house.id === profileHouseId) ??
+        nextHouses[0]
+
+      if (profileHouse) {
+        setProfileHouseId(profileHouse.id)
+        setProfileHouseName(profileHouse.name)
+        setProfileHouseAddress(profileHouse.address)
+        setProfileHouseNote(profileHouse.note)
+      }
       setLogs((current) => (nextDevices.length > 0 ? current : []))
     } catch (error) {
       setMessage(
@@ -369,7 +485,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
           : "Gagal mengambil data rumah dan perangkat."
       )
     }
-  }, [user])
+  }, [profileHouseId, user])
 
   const loadRealtime = React.useCallback(async () => {
     if (!selectedDeviceId) {
@@ -421,6 +537,18 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   }, [loadMainData])
 
   React.useEffect(() => {
+    const savedTheme = window.localStorage.getItem("wattwise-pwa-theme")
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setPwaTheme(savedTheme)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    window.localStorage.setItem("wattwise-pwa-theme", pwaTheme)
+  }, [pwaTheme])
+
+  React.useEffect(() => {
     void Promise.resolve().then(loadPrediction)
   }, [loadPrediction])
 
@@ -455,15 +583,13 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     return () => stopBarcodeScan()
   }, [])
 
-  async function toggleRelay(nextChecked: boolean) {
-    if (!selectedDevice) return
+  async function toggleRelay(device: Device, nextChecked: boolean) {
+    setSelectedDeviceId(device.deviceId)
 
     const nextStatus: RelayStatus = nextChecked ? "ON" : "OFF"
     setDevices((current) =>
-      current.map((device) =>
-        device.deviceId === selectedDevice.deviceId
-          ? { ...device, relayStatus: nextStatus }
-          : device
+      current.map((item) =>
+        item.deviceId === device.deviceId ? { ...item, relayStatus: nextStatus } : item
       )
     )
 
@@ -471,7 +597,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       await apiRequest("/api/relay-control", {
         method: "POST",
         body: JSON.stringify({
-          device_id: selectedDevice.deviceId,
+          device_id: device.deviceId,
           relay: nextChecked,
           status_relay: nextChecked,
         }),
@@ -482,12 +608,63 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         error instanceof Error ? error.message : "Gagal mengubah relay perangkat."
       )
       setDevices((current) =>
-        current.map((device) =>
-          device.deviceId === selectedDevice.deviceId
-            ? { ...device, relayStatus: nextChecked ? "OFF" : "ON" }
-            : device
+        current.map((item) =>
+          item.deviceId === device.deviceId
+            ? { ...item, relayStatus: nextChecked ? "OFF" : "ON" }
+            : item
         )
       )
+    }
+  }
+
+  function openAddFlow() {
+    setDeviceAlertMessage("")
+    setAddMode("device")
+    setIsAddDeviceOpen(true)
+  }
+
+  function handleMissingHouseAction() {
+    setIsMissingHouseAlertOpen(false)
+    setDeviceAlertMessage("")
+    setAddMode("house")
+    setIsAddDeviceOpen(true)
+  }
+
+  async function addHouse(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!houseName.trim()) {
+      setMessage("Masukkan nama rumah terlebih dahulu.")
+      return
+    }
+
+    setIsBusy(true)
+
+    try {
+      const payload = await apiRequest<unknown>("/api/rumah", {
+        method: "POST",
+        body: JSON.stringify({
+          nama_rumah: houseName.trim(),
+          alamat: houseAddress.trim(),
+          deskripsi: houseNote.trim(),
+          pengguna_id: user.id,
+        }),
+      })
+      const createdHouse = mapHouse(getValue(payload, ["data"]) ?? payload, 0)
+
+      setHouseName("")
+      setHouseAddress("")
+      setHouseNote("")
+      setSelectedHouseForDeviceId(createdHouse.id)
+      setMessage("Rumah berhasil ditambahkan. Sekarang tambahkan perangkat.")
+      await loadMainData()
+      setAddMode("device")
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Gagal menambahkan rumah."
+      )
+    } finally {
+      setIsBusy(false)
     }
   }
 
@@ -495,12 +672,24 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     event.preventDefault()
 
     if (!deviceCode.trim()) {
-      setMessage("Masukkan ID alat terlebih dahulu.")
+      setDeviceAlertMessage("Masukkan ID alat terlebih dahulu.")
       return
     }
 
-    if (!houses[0]?.id) {
-      setMessage("Akun ini belum terhubung ke rumah. Hubungkan rumah dulu dari dashboard admin.")
+    const selectedHouseForDevice = houses.find(
+      (house) => house.id === selectedHouseForDeviceId
+    )
+
+    if (!selectedHouseForDevice) {
+      setMessage("")
+      setIsMissingHouseAlertOpen(true)
+      return
+    }
+
+    if (!isUuid(selectedHouseForDevice.id)) {
+      setDeviceAlertMessage(
+        "Data rumah belum memiliki ID database yang valid. Silakan tambahkan rumah baru atau pilih rumah yang valid."
+      )
       return
     }
 
@@ -510,17 +699,22 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         method: "POST",
         body: JSON.stringify({
           device_id: deviceCode.trim(),
-          nama_perangkat: `Perangkat ${deviceCode.trim()}`,
-          rumah_id: houses[0]?.id,
+          nama_perangkat:
+            deviceName.trim() || `Perangkat ${deviceCode.trim()}`,
+          nama_beban: deviceLoadName.trim() || null,
+          rumah_id: selectedHouseForDevice.id,
           status: "Online",
         }),
       })
       setDeviceCode("")
+      setDeviceName("")
+      setDeviceLoadName("")
+      setDeviceAlertMessage("")
       setMessage("Perangkat berhasil ditambahkan.")
       setIsAddDeviceOpen(false)
       await loadMainData()
     } catch (error) {
-      setMessage(
+      setDeviceAlertMessage(
         error instanceof Error ? error.message : "Gagal menambahkan perangkat."
       )
     } finally {
@@ -543,6 +737,42 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         error instanceof Error
           ? error.message
           : "Gagal menyimpan profil. Pastikan backend sudah punya field nomor telepon."
+      )
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function saveProfileHouse(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!profileHouseId) {
+      setMessage("Belum ada rumah yang bisa diperbarui.")
+      return
+    }
+
+    if (!profileHouseName.trim()) {
+      setMessage("Nama rumah wajib diisi.")
+      return
+    }
+
+    setIsBusy(true)
+
+    try {
+      await apiRequest(`/api/rumah/${profileHouseId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nama_rumah: profileHouseName.trim(),
+          alamat: profileHouseAddress.trim(),
+          deskripsi: profileHouseNote.trim(),
+          pengguna_id: user.id,
+        }),
+      })
+      setMessage("Data rumah berhasil diperbarui.")
+      await loadMainData()
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Gagal memperbarui rumah."
       )
     } finally {
       setIsBusy(false)
@@ -645,7 +875,10 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   const prediction = predictions[0]
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main
+      className="min-h-svh bg-background text-foreground"
+      style={pwaThemeStyle}
+    >
       <div className="mx-auto flex min-h-svh w-full max-w-md flex-col pb-24">
         <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-4 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
@@ -654,6 +887,26 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
               <h1 className="text-xl font-semibold">Halo, {user.username}</h1>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={
+                  pwaTheme === "light" ? "Aktifkan dark mode" : "Aktifkan light mode"
+                }
+                onClick={() =>
+                  setPwaTheme((current) =>
+                    current === "light" ? "dark" : "light"
+                  )
+                }
+                className="rounded-full"
+              >
+                {pwaTheme === "light" ? (
+                  <Moon className="size-5" />
+                ) : (
+                  <Sun className="size-5" />
+                )}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -690,37 +943,91 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         {activeTab === "home" ? (
           <section className="space-y-4 p-4">
             <Card>
-              <CardHeader className="gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">
-                      Kontrol Perangkat
-                    </CardTitle>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">Perangkat Saya</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {selectedDevice?.houseName || houses[0]?.name || "Rumah belum dipilih"}
+                      {devices.length} perangkat terhubung
                     </p>
                   </div>
-                  <Switch
-                    checked={selectedDevice?.relayStatus === "ON"}
-                    disabled={!selectedDevice}
-                    onCheckedChange={toggleRelay}
-                  />
+                  <Badge variant="outline">{filteredDevices.length}</Badge>
                 </div>
-                <select
-                  value={selectedDeviceId}
-                  onChange={(event) => setSelectedDeviceId(event.target.value)}
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                >
-                  {devices.map((device) => (
-                    <option key={device.id} value={device.deviceId}>
-                      {device.name} - {device.deviceId}
-                    </option>
-                  ))}
-                  {devices.length === 0 ? (
-                    <option value="">Belum ada perangkat</option>
-                  ) : null}
-                </select>
               </CardHeader>
+              <CardContent className="space-y-3">
+                <Input
+                  value={deviceSearch}
+                  onChange={(event) => setDeviceSearch(event.target.value)}
+                  placeholder="Cari nama atau ID perangkat"
+                  className="h-10"
+                />
+                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                  {filteredDevices.map((device) => {
+                    const active = device.deviceId === selectedDeviceId
+
+                    return (
+                      <div
+                        key={device.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-selected={active}
+                        onClick={() => setSelectedDeviceId(device.deviceId)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            setSelectedDeviceId(device.deviceId)
+                          }
+                        }}
+                        className={`flex min-h-16 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "bg-background hover:bg-muted/60"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium">
+                              {device.name}
+                            </p>
+                            <Badge
+                              variant={
+                                device.relayStatus === "ON" ? "default" : "secondary"
+                              }
+                              className="shrink-0"
+                            >
+                              {device.relayStatus}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                            {device.deviceId}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {device.houseName}
+                          </p>
+                        </div>
+                        <div onClick={(event) => event.stopPropagation()}>
+                          <Switch
+                            checked={device.relayStatus === "ON"}
+                            onCheckedChange={(checked) =>
+                              toggleRelay(device, checked)
+                            }
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {devices.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      Belum ada perangkat.
+                    </div>
+                  ) : null}
+                  {devices.length > 0 && filteredDevices.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      Perangkat tidak ditemukan.
+                    </div>
+                  ) : null}
+                </div>
+              </CardContent>
             </Card>
 
             {!hasLinkedHouse ? (
@@ -753,7 +1060,9 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Grafik Realtime</CardTitle>
+                <CardTitle className="text-base">
+                  Grafik Realtime{selectedDevice ? ` - ${selectedDevice.name}` : ""}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ChartContainer
@@ -784,7 +1093,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                     />
                     <Area
                       dataKey="power"
-                      type="natural"
+                      type="monotone"
                       fill="var(--color-power)"
                       fillOpacity={0.35}
                       stroke="var(--color-power)"
@@ -869,7 +1178,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                 aria-pressed={active}
                 onClick={() =>
                   item.key === "add"
-                    ? setIsAddDeviceOpen(true)
+                    ? openAddFlow()
                     : switchTab(item.key)
                 }
                 className={`flex h-12 flex-col items-center justify-center rounded-md text-xs ${
@@ -889,7 +1198,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       </nav>
 
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" style={pwaThemeStyle}>
           <DialogHeader>
             <DialogTitle>Profil</DialogTitle>
             <DialogDescription>{user.email}</DialogDescription>
@@ -936,6 +1245,99 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
               Simpan Profil
             </Button>
           </form>
+          <div className="border-t pt-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">Pengaturan Rumah</p>
+                <p className="text-sm text-muted-foreground">
+                  Ubah nama, alamat, dan catatan rumah.
+                </p>
+              </div>
+              {houses.length === 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsProfileOpen(false)
+                    setAddMode("house")
+                    setIsAddDeviceOpen(true)
+                  }}
+                >
+                  <Plus />
+                  Rumah
+                </Button>
+              ) : null}
+            </div>
+            {houses.length > 0 ? (
+              <form onSubmit={saveProfileHouse} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Rumah</Label>
+                  <Select
+                    value={profileHouseId}
+                    onValueChange={(value) => {
+                      const house = houses.find((item) => item.id === value)
+
+                      setProfileHouseId(value)
+                      setProfileHouseName(house?.name ?? "")
+                      setProfileHouseAddress(house?.address ?? "")
+                      setProfileHouseNote(house?.note ?? "")
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih rumah" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {houses.map((house) => (
+                        <SelectItem key={house.id} value={house.id}>
+                          {house.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-house-name">Nama Rumah</Label>
+                  <Input
+                    id="profile-house-name"
+                    value={profileHouseName}
+                    onChange={(event) => setProfileHouseName(event.target.value)}
+                    placeholder="Nama rumah"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-house-address">Alamat</Label>
+                  <Input
+                    id="profile-house-address"
+                    value={profileHouseAddress}
+                    onChange={(event) =>
+                      setProfileHouseAddress(event.target.value)
+                    }
+                    placeholder="Alamat rumah"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-house-note">Catatan</Label>
+                  <Textarea
+                    id="profile-house-note"
+                    value={profileHouseNote}
+                    onChange={(event) => setProfileHouseNote(event.target.value)}
+                    placeholder="Catatan rumah"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isBusy}>
+                  <Home />
+                  Simpan Rumah
+                </Button>
+              </form>
+            ) : (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Belum ada rumah. Tambahkan rumah agar perangkat bisa
+                dihubungkan.
+              </div>
+            )}
+          </div>
           <form action={logoutAction}>
             <Button variant="outline" className="w-full">
               <LogOut />
@@ -946,7 +1348,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       </Dialog>
 
       <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" style={pwaThemeStyle}>
           <DialogHeader>
             <DialogTitle>Pesan</DialogTitle>
             <DialogDescription>Notifikasi akun dan perangkat.</DialogDescription>
@@ -957,73 +1359,202 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAddDeviceOpen} onOpenChange={setIsAddDeviceOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={isAddDeviceOpen}
+        onOpenChange={(open) => {
+          setIsAddDeviceOpen(open)
+          if (!open) setDeviceAlertMessage("")
+        }}
+      >
+        <DialogContent className="max-w-md" style={pwaThemeStyle}>
           <DialogHeader>
-            <DialogTitle>Tambah Perangkat</DialogTitle>
+            <DialogTitle>
+              {addMode === "house" ? "Tambah Rumah" : "Tambah Perangkat"}
+            </DialogTitle>
             <DialogDescription>
-              Scan barcode ID perangkat atau masukkan ID alat secara manual.
+              {addMode === "house"
+                ? "Tambahkan rumah terlebih dahulu sebelum menghubungkan perangkat."
+                : "Pilih rumah, lalu scan barcode ID perangkat atau masukkan ID alat secara manual."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={addDevice} className="space-y-4">
-            <div className="space-y-2">
-              <Label>ID Alat</Label>
-              <div className="flex gap-2">
+
+          {addMode === "house" ? (
+            <form onSubmit={addHouse} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="pwa-house-name">Nama Rumah</Label>
                 <Input
-                  value={deviceCode}
-                  onChange={(event) => setDeviceCode(event.target.value)}
-                  placeholder="Scan barcode atau ketik ID alat"
+                  id="pwa-house-name"
+                  value={houseName}
+                  onChange={(event) => setHouseName(event.target.value)}
+                  placeholder="Contoh: Rumah Utama"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pwa-house-address">Alamat</Label>
+                <Input
+                  id="pwa-house-address"
+                  value={houseAddress}
+                  onChange={(event) => setHouseAddress(event.target.value)}
+                  placeholder="Alamat rumah"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pwa-house-note">Catatan</Label>
+                <Textarea
+                  id="pwa-house-note"
+                  value={houseNote}
+                  onChange={(event) => setHouseNote(event.target.value)}
+                  placeholder="Catatan tambahan"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isBusy}>
+                <Home />
+                Simpan Rumah
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={addDevice} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Rumah</Label>
+                <Select
+                  value={selectedHouseForDeviceId}
+                  onValueChange={setSelectedHouseForDeviceId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih rumah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {houses.map((house) => (
+                      <SelectItem key={house.id} value={house.id}>
+                        {house.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>ID Alat</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={deviceCode}
+                    onChange={(event) => setDeviceCode(event.target.value)}
+                    placeholder="Scan barcode atau ketik ID alat"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Scan barcode"
+                    onClick={isScanning ? stopBarcodeScan : startBarcodeScan}
+                  >
+                    <Camera />
+                  </Button>
+                </div>
+                <input
+                  ref={barcodeImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={scanBarcodeImage}
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  aria-label="Scan barcode"
-                  onClick={isScanning ? stopBarcodeScan : startBarcodeScan}
+                  className="w-full"
+                  onClick={() => barcodeImageInputRef.current?.click()}
                 >
-                  <Camera />
+                  <Upload />
+                  Scan dari Foto
                 </Button>
               </div>
-              <input
-                ref={barcodeImageInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={scanBarcodeImage}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => barcodeImageInputRef.current?.click()}
+              <div className="space-y-2">
+                <Label>Nama Perangkat</Label>
+                <Input
+                  value={deviceName}
+                  onChange={(event) => setDeviceName(event.target.value)}
+                  placeholder="Contoh: ESP32 Ruang Tamu"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nama Beban</Label>
+                <Input
+                  value={deviceLoadName}
+                  onChange={(event) => setDeviceLoadName(event.target.value)}
+                  placeholder="Contoh: Lampu Teras"
+                />
+              </div>
+              <div
+                className={`overflow-hidden rounded-md border bg-muted ${
+                  isScanning ? "block" : "hidden"
+                }`}
               >
-                <Upload />
-                Scan dari Foto
+                <video
+                  ref={videoRef}
+                  className="aspect-video w-full scale-x-100 object-cover"
+                  muted
+                  playsInline
+                />
+              </div>
+              {scanError ? (
+                <p className="text-sm text-destructive">{scanError}</p>
+              ) : null}
+              <Button type="submit" className="w-full" disabled={isBusy}>
+                <Plus />
+                Tambah Perangkat
               </Button>
-            </div>
-            <div
-              className={`overflow-hidden rounded-md border bg-muted ${
-                isScanning ? "block" : "hidden"
-              }`}
-            >
-              <video
-                ref={videoRef}
-                className="aspect-video w-full scale-x-100 object-cover"
-                muted
-                playsInline
-              />
-            </div>
-            {scanError ? (
-              <p className="text-sm text-destructive">{scanError}</p>
-            ) : null}
-            <Button type="submit" className="w-full" disabled={isBusy}>
-              <Plus />
-              Tambah ke Rumah Saya
-            </Button>
-          </form>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isMissingHouseAlertOpen}
+        onOpenChange={setIsMissingHouseAlertOpen}
+      >
+        <AlertDialogContent style={pwaThemeStyle}>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Home />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Tambahkan rumah terlebih dahulu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Anda belum membuat atau memilih rumah. Data alat yang sudah
+              diketik akan tetap tersimpan, lalu setelah rumah dibuat perangkat
+              bisa langsung ditambahkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Nanti</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMissingHouseAction}>
+              Tambah Rumah
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deviceAlertMessage !== ""}
+        onOpenChange={(open) => {
+          if (!open) setDeviceAlertMessage("")
+        }}
+      >
+        <AlertDialogContent style={pwaThemeStyle}>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Zap />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Perangkat belum bisa ditambahkan</AlertDialogTitle>
+            <AlertDialogDescription>{deviceAlertMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDeviceAlertMessage("")}>
+              Mengerti
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

@@ -62,6 +62,10 @@ const data = {
           title: "Perangkat",
           url: "/manajemen/perangkat",
         },
+        {
+          title: "Tarif Listrik",
+          url: "/manajemen/tarif-listrik",
+        },
       ],
     },
     {
@@ -72,10 +76,6 @@ const data = {
         {
           title: "Data Listrik",
           url: "/monitoring/realtime",
-        },
-        {
-          title: "Riwayat Pemakaian",
-          url: "/monitoring/riwayat-pemakaian",
         },
       ],
     },

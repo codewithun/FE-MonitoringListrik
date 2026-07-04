@@ -309,11 +309,24 @@ const chartConfig = {
 } satisfies ChartConfig
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value)
+  const normalizedValue = Math.round(Number.isFinite(value) ? value : 0)
+  const formattedValue = String(normalizedValue).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    "."
+  )
+
+  return `Rp ${formattedValue}`
+}
+
+function formatDate(value: string) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+  }).format(date)
 }
 
 function mapHouse(item: unknown, index: number): House {
@@ -341,12 +354,17 @@ function mapUsageHistory(item: unknown, index: number): UsageHistory {
   const energyKwh = getNumber(item, ["energyKwh", "energy", "energi", "kwh"], 0)
   const power = getNumber(item, ["avgPower", "power", "daya"], 0)
   const maxPower = getNumber(item, ["maxPower", "daya_maksimum"], power)
+  const rawDate = getString(
+    item,
+    ["date", "tanggal", "created_at", "waktu", "waktu_baca", "timestamp"],
+    String(index + 1)
+  )
 
   return {
     id: getString(item, ["id"], `history-${index}`),
     houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
     deviceId: getString(item, ["deviceId", "id_perangkat", "perangkat_id", "device_id"], ""),
-    date: getString(item, ["date", "tanggal", "created_at", "waktu"], String(index + 1)),
+    date: formatDate(rawDate),
     energyKwh,
     cost: getNumber(item, ["cost", "biaya"], energyKwh * electricityRate),
     avgPower: power,
@@ -357,14 +375,29 @@ function mapUsageHistory(item: unknown, index: number): UsageHistory {
 }
 
 function mapMonthlyUsage(item: unknown, index: number): MonthlyUsage {
-  const energyKwh = getNumber(item, ["energyKwh", "energy", "energi", "kwh", "prediksi_kwh"], 0)
+  const energyKwh = getNumber(
+    item,
+    [
+      "energyKwh",
+      "energy",
+      "energi",
+      "kwh",
+      "prediksi_kwh",
+      "prediksi_energi_kwh",
+    ],
+    0
+  )
 
   return {
     houseId: getString(item, ["houseId", "id_rumah", "rumah_id"], ""),
     deviceId: getString(item, ["deviceId", "id_perangkat", "perangkat_id", "device_id"], ""),
     month: getString(item, ["month", "bulan", "periode"], String(index + 1)),
     energyKwh,
-    cost: getNumber(item, ["cost", "biaya"], energyKwh * electricityRate),
+    cost: getNumber(
+      item,
+      ["cost", "biaya", "prediksi_biaya"],
+      energyKwh * electricityRate
+    ),
   }
 }
 
@@ -388,22 +421,24 @@ export default function Page() {
           await Promise.all([
             apiRequest<unknown>("/api/rumah"),
             apiRequest<unknown>("/api/perangkat"),
-            apiRequest<unknown>("/api/data-listrik", {
-              method: "POST",
-              body: JSON.stringify({}),
-            }),
+            apiRequest<unknown>("/api/data-listrik/history?limit=2000"),
             apiRequest<unknown>("/api/prediksi-bulanan"),
           ])
 
         const nextHouses = extractArray(housePayload).map(mapHouse)
         const nextDevices = extractArray(devicePayload).map(mapDevice)
+        const firstHouseId = nextHouses[0]?.id ?? ""
+        const firstDeviceId =
+          nextDevices.find((device) => device.houseId === firstHouseId)?.id ??
+          nextDevices[0]?.id ??
+          ""
 
         setHouseRows(nextHouses)
         setDeviceRows(nextDevices)
         setHistoryRows(extractArray(historyPayload).map(mapUsageHistory))
         setMonthlyRows(extractArray(monthlyPayload).map(mapMonthlyUsage))
-        setSelectedHouseId(nextHouses[0]?.id ?? "")
-        setSelectedDeviceId(nextDevices[0]?.id ?? "")
+        setSelectedHouseId(firstHouseId)
+        setSelectedDeviceId(firstDeviceId)
       } catch (error) {
         setErrorMessage(
           error instanceof Error
@@ -436,13 +471,13 @@ export default function Page() {
   const filteredHistory = historyRows.filter(
     (item) =>
       (!item.houseId || item.houseId === selectedHouseId) &&
-      (!item.deviceId || item.deviceId === selectedDevice?.id)
+      (!item.deviceId || item.deviceId === selectedDevice?.deviceCode)
   )
 
   const filteredMonthlyUsage = monthlyRows.filter(
     (item) =>
       (!item.houseId || item.houseId === selectedHouseId) &&
-      (!item.deviceId || item.deviceId === selectedDevice?.id)
+      (!item.deviceId || item.deviceId === selectedDevice?.deviceCode)
   )
 
   const summary = useMemo(() => {
@@ -763,7 +798,7 @@ export default function Page() {
                     content={<ChartTooltipContent indicator="line" />}
                   />
                   <Area
-                    type="natural"
+                    type="monotone"
                     dataKey="energyKwh"
                     fill="var(--color-energyKwh)"
                     fillOpacity={0.35}
