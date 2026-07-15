@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Activity, Gauge, Power, Zap } from "lucide-react"
+import { Activity, Gauge, Power, Zap, Cpu, Home } from "lucide-react"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -152,10 +152,35 @@ export default function Page() {
               Data listrik terbaru yang tersimpan di database.
             </p>
           </div>
-          <Badge variant="outline" className="w-fit">
-            {lastSync ? `Update ${lastSync}` : "Menunggu data"}
+          <Badge variant="outline" className="flex w-fit items-center gap-2">
+            {lastSync ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                </span>
+                Terakhir diperbarui: {lastSync}
+              </>
+            ) : (
+              "Menunggu data..."
+            )}
           </Badge>
         </div>
+
+        {latestData ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
+              <Cpu className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">Perangkat:</span>
+              <span className="font-semibold text-foreground">{latestData.deviceName}</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
+              <Home className="h-4 w-4 text-blue-500" />
+              <span className="text-muted-foreground">Lokasi:</span>
+              <span className="font-semibold text-foreground">{latestData.houseName}</span>
+            </div>
+          </div>
+        ) : null}
 
         {errorMessage ? (
           <Card className="border-destructive/50">

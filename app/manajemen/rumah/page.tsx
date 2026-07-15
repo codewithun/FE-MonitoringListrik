@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -311,8 +312,9 @@ export default function Page() {
         method: "DELETE",
       })
       await loadHouses()
+      toast.success("Berhasil menghapus rumah.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal menghapus rumah."
       )
     }
@@ -353,9 +355,10 @@ export default function Page() {
         await loadHouses()
         resetForm()
         setOpen(false)
+        toast.success("Berhasil menambahkan rumah.")
         return
       } catch (error) {
-        window.alert(
+        toast.error(
           error instanceof Error ? error.message : "Gagal menyimpan rumah."
         )
         return
@@ -375,8 +378,9 @@ export default function Page() {
       await loadHouses()
       resetForm()
       setOpen(false)
+      toast.success("Berhasil memperbarui rumah.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal memperbarui rumah."
       )
     }

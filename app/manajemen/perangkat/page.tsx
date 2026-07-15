@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -513,8 +514,9 @@ export default function Page() {
         method: "DELETE",
       })
       await loadDevices()
+      toast.success("Berhasil menghapus perangkat.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal menghapus perangkat."
       )
     }
@@ -549,9 +551,10 @@ export default function Page() {
         }),
       })
       await loadDevices()
+      toast.success(`Relay berhasil diubah menjadi ${nextStatus}.`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Gagal mengubah relay."
-      window.alert(errorMessage)
+      toast.error(errorMessage)
       await loadDevices()
     }
   }
@@ -634,7 +637,7 @@ export default function Page() {
     )
 
     if (codeAlreadyUsed) {
-      window.alert("Device ID sudah digunakan oleh perangkat lain.")
+      toast.warning("Device ID sudah digunakan oleh perangkat lain.")
       return
     }
 
@@ -680,9 +683,10 @@ export default function Page() {
         })
         resetForm()
         setOpen(false)
+        toast.success("Berhasil menambahkan perangkat.")
         return
       } catch (error) {
-        window.alert(
+        toast.error(
           error instanceof Error ? error.message : "Gagal menyimpan perangkat."
         )
         return
@@ -704,8 +708,9 @@ export default function Page() {
       await loadDevices()
       resetForm()
       setOpen(false)
+      toast.success("Berhasil memperbarui perangkat.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal memperbarui perangkat."
       )
     }

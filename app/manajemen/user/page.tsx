@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -315,8 +316,9 @@ export default function Page() {
       })
       await loadUsers()
       await loadHouseOptions()
+      toast.success("Berhasil menghapus user.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal menghapus user."
       )
     }
@@ -330,12 +332,12 @@ export default function Page() {
     )
 
     if (emailAlreadyUsed) {
-      window.alert("Email sudah digunakan oleh user lain.")
+      toast.warning("Email sudah digunakan oleh user lain.")
       return
     }
 
     if (!editingId && form.password.length < 8) {
-      window.alert("Password awal minimal 8 karakter.")
+      toast.warning("Password awal minimal 8 karakter.")
       return
     }
 
@@ -369,8 +371,9 @@ export default function Page() {
       await loadUsers()
       resetForm()
       setOpen(false)
+      toast.success(`Berhasil ${editingId ? "memperbarui" : "menambahkan"} user.`)
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal menyimpan user."
       )
     }

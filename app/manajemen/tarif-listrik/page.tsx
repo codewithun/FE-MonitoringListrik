@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import {
   Banknote,
   Calculator,
@@ -274,9 +275,9 @@ export default function Page() {
   const averagePrice =
     activeCount > 0
       ? tariffRows
-          .filter((tariff) => tariff.status === "Aktif")
-          .reduce((total, tariff) => total + tariff.pricePerKwh, 0) /
-        activeCount
+        .filter((tariff) => tariff.status === "Aktif")
+        .reduce((total, tariff) => total + tariff.pricePerKwh, 0) /
+      activeCount
       : 0
   const highestPrice = tariffRows.reduce(
     (highest, tariff) => Math.max(highest, tariff.pricePerKwh),
@@ -388,8 +389,9 @@ export default function Page() {
         method: "DELETE",
       })
       await loadTariffs()
+      toast.success("Berhasil menghapus tarif listrik.")
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Gagal menghapus tarif listrik."
       )
     }
@@ -402,7 +404,7 @@ export default function Page() {
     const selectedHouse = houseOptions.find((house) => house.id === form.houseId)
 
     if (!form.houseId) {
-      window.alert("Pilih rumah terlebih dahulu.")
+      toast.warning("Pilih rumah terlebih dahulu.")
       return
     }
 
@@ -422,8 +424,8 @@ export default function Page() {
     if (isLocalMode) {
       const nextRows = editingId
         ? tariffRows.map((tariff) =>
-            tariff.id === editingId ? nextTariff : tariff
-          )
+          tariff.id === editingId ? nextTariff : tariff
+        )
         : [nextTariff, ...tariffRows]
 
       saveRowsLocally(nextRows)
@@ -449,8 +451,9 @@ export default function Page() {
       await loadTariffs()
       resetForm()
       setOpen(false)
+      toast.success(`Berhasil ${editingId ? "memperbarui" : "menambahkan"} tarif listrik.`)
     } catch (error) {
-      window.alert(
+      toast.error(
         error instanceof Error
           ? error.message
           : "Gagal menyimpan tarif listrik."
@@ -700,7 +703,7 @@ export default function Page() {
                     <TableRow>
                       <TableHead>Nama Tarif</TableHead>
                       <TableHead>Rumah</TableHead>
-                      <TableHead>Alat</TableHead>
+                      <TableHead>Jumlah Alat</TableHead>
                       <TableHead>Harga per kWh</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Catatan</TableHead>
@@ -720,11 +723,7 @@ export default function Page() {
                           </TableCell>
                           <TableCell>
                             <span className="font-medium">
-                              {tariff.deviceCount}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {tariff.onlineDeviceCount} online,{" "}
-                              {tariff.relayOnCount} relay ON
+                              {tariff.deviceCount} perangkat
                             </span>
                           </TableCell>
                           <TableCell>{formatCurrency(tariff.pricePerKwh)}</TableCell>

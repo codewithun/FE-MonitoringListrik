@@ -303,10 +303,24 @@ function mapElectricityLog(item: unknown, index: number): ElectricityLog {
 }
 
 function mapPrediction(item: unknown, index: number): Prediction {
+  const bulan = getNumber(item, ["bulan"], 0)
+  const tahun = getNumber(item, ["tahun"], 0)
+  
+  let label = `Prediksi ${index + 1}`
+  if (bulan > 0 && tahun > 0) {
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ]
+    label = `${monthNames[bulan - 1]} ${tahun}`
+  } else {
+    label = getString(item, ["label", "periode"], label)
+  }
+
   return {
-    label: getString(item, ["label", "bulan", "periode"], `Prediksi ${index + 1}`),
+    label,
     cost: getNumber(item, ["cost", "biaya", "prediksi_biaya"], 0),
-    energy: getNumber(item, ["energy", "energi", "kwh", "prediksi_kwh"], 0),
+    energy: getNumber(item, ["energy", "energi", "kwh", "prediksi_kwh", "prediksi_energi_kwh"], 0),
     houseId: getString(item, ["houseId", "rumah_id", "id_rumah"], ""),
     deviceId: getString(item, ["deviceId", "device_id", "id_perangkat", "perangkat_id"], ""),
   }
@@ -347,7 +361,11 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const barcodeImageInputRef = React.useRef<HTMLInputElement>(null)
   const scanControlsRef = React.useRef<IScannerControls | null>(null)
-  const [activeTab, setActiveTab] = React.useState<TabKey>(getTabFromUrl)
+  const [activeTab, setActiveTab] = React.useState<TabKey>("home")
+
+  React.useEffect(() => {
+    setActiveTab(getTabFromUrl())
+  }, [])
   const [houses, setHouses] = React.useState<House[]>([])
   const [devices, setDevices] = React.useState<Device[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = React.useState("")
