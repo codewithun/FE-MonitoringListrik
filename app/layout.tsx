@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -51,7 +50,6 @@ export default function RootLayout({
         {children}
         <PwaRegister />
         <Toaster position="top-center" />
-        <Script src="https://js.puter.com/v2/" />
       </body>
     </html>
   );

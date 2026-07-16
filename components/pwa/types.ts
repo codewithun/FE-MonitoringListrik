@@ -9,12 +9,6 @@ import {
 } from "@/lib/api-client"
 import type { SessionUser } from "@/lib/auth-constants"
 
-declare global {
-  interface Window {
-    puter: any
-  }
-}
-
 export type TabKey = "home" | "prediction"
 export type RelayStatus = "ON" | "OFF"
 export type PwaTheme = "light" | "dark"

@@ -79,10 +79,6 @@ export function AssistantBubble({ devices, logs, prediction }: AssistantBubblePr
     setIsTyping(true)
 
     try {
-      if (!window.puter) {
-        throw new Error("Puter.js belum dimuat.")
-      }
-
       // Format data untuk system prompt
       const devicesInfo = devices.map(d => `- ${d.name} (ID: ${d.id}, Status: ${d.relayStatus})`).join('\n')
       const predictionInfo = prediction 
@@ -100,11 +96,22 @@ ${predictionInfo}
 
 Jawablah pertanyaan pengguna berikut berdasarkan data di atas dengan singkat dan jelas. Jangan menjawab hal-hal yang tidak relevan dengan listrik atau sistem ini.`
 
-      const response = await window.puter.ai.chat(
-        `${systemPrompt}\n\nPertanyaan: ${inputValue.trim()}`
-      )
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `${systemPrompt}\n\nPertanyaan: ${inputValue.trim()}`
+        }),
+      });
 
-      const botResponse = typeof response === "string" ? response : response?.message?.content || "Maaf, saya tidak mengerti."
+      if (!response.ok) {
+        throw new Error("Gagal mengambil respons dari server");
+      }
+
+      const data = await response.json();
+      const botResponse = data.message || "Maaf, saya tidak mengerti.";
 
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
