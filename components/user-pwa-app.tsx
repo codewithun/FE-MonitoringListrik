@@ -39,6 +39,7 @@ import { PredictionTab } from "./pwa/prediction-tab"
 import { AssistantBubble } from "./pwa/assistant-bubble"
 import { AddDialog } from "./pwa/add-dialog"
 import { ProfileDialog } from "./pwa/profile-dialog"
+import { DeviceConfigDialog } from "./pwa/device-config-dialog"
 
 const LIGHT_PWA_THEME = {
   "--background": "#F8FAFC",
@@ -83,6 +84,9 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   const [isAddDeviceOpen, setIsAddDeviceOpen] = React.useState(false)
   const [isMissingHouseAlertOpen, setIsMissingHouseAlertOpen] = React.useState(false)
   const [addMode, setAddMode] = React.useState<AddMode>("device")
+
+  const [configDevice, setConfigDevice] = React.useState<Device | null>(null)
+  const [isConfigDeviceOpen, setIsConfigDeviceOpen] = React.useState(false)
 
   React.useEffect(() => {
     setActiveTab(getTabFromUrl())
@@ -352,6 +356,10 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
             setSelectedDeviceId={setSelectedDeviceId}
             toggleRelay={toggleRelay}
             hasLinkedHouse={houses.length > 0}
+            onConfigDevice={(device) => {
+              setConfigDevice(device)
+              setIsConfigDeviceOpen(true)
+            }}
           />
         ) : null}
 
@@ -420,6 +428,19 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         isMissingHouseAlertOpen={isMissingHouseAlertOpen}
         setIsMissingHouseAlertOpen={setIsMissingHouseAlertOpen}
         pwaThemeStyle={pwaThemeStyle}
+      />
+
+      <DeviceConfigDialog
+        open={isConfigDeviceOpen}
+        onOpenChange={setIsConfigDeviceOpen}
+        device={configDevice}
+        pwaThemeStyle={pwaThemeStyle}
+        onSuccess={(updatedDevice) => {
+          setDevices((current) =>
+            current.map((d) => (d.id === updatedDevice.id ? updatedDevice : d))
+          )
+          loadMainData() // Refresh full data in background
+        }}
       />
 
       <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>

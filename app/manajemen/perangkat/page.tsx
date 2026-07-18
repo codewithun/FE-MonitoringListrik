@@ -356,7 +356,10 @@ export default function Page() {
 
   React.useEffect(() => {
     void Promise.resolve().then(loadDevices)
-  }, [loadDevices])
+    
+    // Cleanup function
+    return () => {}
+  }, [])
 
   const loadHouseOptions = React.useCallback(async () => {
     setHouseError("")

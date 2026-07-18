@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Activity, BarChart3, BatteryCharging, Zap } from "lucide-react"
+import { Activity, BarChart3, BatteryCharging, Zap, Settings2, Clock } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
@@ -35,6 +35,7 @@ interface HomeTabProps {
   setSelectedDeviceId: (id: string) => void
   toggleRelay: (device: Device, nextChecked: boolean) => Promise<void>
   hasLinkedHouse: boolean
+  onConfigDevice: (device: Device) => void
 }
 
 export function HomeTab({
@@ -44,6 +45,7 @@ export function HomeTab({
   setSelectedDeviceId,
   toggleRelay,
   hasLinkedHouse,
+  onConfigDevice,
 }: HomeTabProps) {
   const [deviceSearch, setDeviceSearch] = React.useState("")
 
@@ -129,11 +131,34 @@ export function HomeTab({
                     <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                       {device.deviceId}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {device.houseName}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="truncate text-xs text-muted-foreground">
+                        {device.houseName}
+                      </p>
+                      {(device.jadwalAktif || device.batasDayaAktif) && (
+                        <div className="flex items-center gap-1 border-l pl-2 ml-1 border-border">
+                          {device.jadwalAktif && (
+                            <Clock className="w-3 h-3 text-primary" aria-label="Jadwal aktif" />
+                          )}
+                          {device.batasDayaAktif && (
+                            <Zap className="w-3 h-3 text-amber-500" aria-label="Batas daya aktif" />
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div onClick={(event) => event.stopPropagation()}>
+                  <div 
+                    onClick={(event) => event.stopPropagation()}
+                    className="flex items-center gap-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onConfigDevice(device)}
+                      className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Pengaturan perangkat"
+                    >
+                      <Settings2 className="w-5 h-5" />
+                    </button>
                     <Switch
                       checked={device.relayStatus === "ON"}
                       onCheckedChange={(checked) =>

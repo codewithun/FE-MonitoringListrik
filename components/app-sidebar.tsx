@@ -8,6 +8,7 @@ import {
   Command,
   Layers,
   TvMinimal,
+  Cpu,
 } from "lucide-react"
 
 import { NavMain } from "./nav-main"
@@ -59,12 +60,27 @@ const data = {
           url: "/manajemen/rumah",
         },
         {
-          title: "Perangkat",
+          title: "Tarif Listrik",
+          url: "/manajemen/tarif-listrik",
+        },
+      ],
+    },
+    {
+      title: "Perangkat",
+      url: "/manajemen/perangkat",
+      icon: Cpu,
+      items: [
+        {
+          title: "Data Perangkat",
           url: "/manajemen/perangkat",
         },
         {
-          title: "Tarif Listrik",
-          url: "/manajemen/tarif-listrik",
+          title: "Penjadwalan",
+          url: "/manajemen/perangkat/penjadwalan",
+        },
+        {
+          title: "Pengaturan Daya",
+          url: "/manajemen/perangkat/pengaturan-daya",
         },
       ],
     },

@@ -34,6 +34,12 @@ export type Device = {
   houseId: string
   houseName: string
   relayStatus: RelayStatus
+  batasDaya?: number
+  batasDayaAktif?: boolean
+  jadwalAktif?: boolean
+  jadwalTanggal?: string
+  jadwalWaktu?: string
+  jadwalAksi?: string
 }
 
 export type ElectricityLog = {
@@ -175,6 +181,12 @@ export function mapDevice(item: unknown, index: number): Device {
       getString(nestedHouse, ["id", "id_rumah", "rumah_id"], ""),
     houseName,
     relayStatus: relayOn ? "ON" : "OFF",
+    batasDaya: getNumber(item, ["batas_daya", "batasDaya"], 0),
+    batasDayaAktif: getBoolean(item, ["batas_daya_aktif", "batasDayaAktif"], false),
+    jadwalAktif: getBoolean(item, ["jadwal_aktif", "jadwalAktif"], false),
+    jadwalTanggal: getString(item, ["jadwal_tanggal", "jadwalTanggal"], ""),
+    jadwalWaktu: getString(item, ["jadwal_waktu", "jadwalWaktu"], ""),
+    jadwalAksi: getString(item, ["jadwal_aksi", "jadwalAksi"], ""),
   }
 }
 
