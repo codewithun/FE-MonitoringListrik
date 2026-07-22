@@ -101,11 +101,11 @@ export function HistoryTab({ devices }: HistoryTabProps) {
       </div>
 
       <Card>
-        <CardContent className="p-4 space-y-4">
-          <div className="space-y-2">
-            <Label>Pilih Perangkat</Label>
+        <CardContent className="p-3 space-y-3">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm font-medium text-muted-foreground">Pilih Perangkat</Label>
             <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
-              <SelectTrigger>
+              <SelectTrigger className="h-9">
                 <SelectValue placeholder="Pilih perangkat" />
               </SelectTrigger>
               <SelectContent>
@@ -123,15 +123,15 @@ export function HistoryTab({ devices }: HistoryTabProps) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Pilih Tanggal</Label>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm font-medium text-muted-foreground">Pilih Tanggal</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-9"
+                className="pl-9 h-9"
               />
             </div>
           </div>
@@ -268,7 +268,7 @@ export function HistoryTab({ devices }: HistoryTabProps) {
           </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Detail Data List */}
       {chartData.length > 0 && !isLoading && (
         <Card>
