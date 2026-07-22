@@ -259,7 +259,7 @@ export function HomeTab({
           <CardTitle className="text-base">Riwayat Terbaru</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {logs.map((log) => (
+          {logs.slice(0, 3).map((log) => (
             <div
               key={log.id}
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"

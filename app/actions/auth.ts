@@ -18,6 +18,7 @@ type AuthResponse = {
     username: string
     email: string
     role: "admin" | "user"
+    avatar?: string
   }
 }
 
@@ -70,6 +71,8 @@ async function setSession(user: SessionUser) {
     maxAge: 60 * 60 * 24,
   })
 }
+
+
 
 export async function loginAction(_state: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") || "").trim().toLowerCase()

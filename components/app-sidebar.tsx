@@ -41,7 +41,7 @@ function showNavigationLoading(event: React.MouseEvent<HTMLAnchorElement>) {
 
 const data = {
   navMain: [
-    { 
+    {
       title: "Dashboard",
       url: "/dashboard",
       icon: Gauge,
@@ -114,12 +114,11 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link href="/dashboard" onClick={showNavigationLoading}>
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Command className="size-4" />
+                  <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
+                    <img src="/logo.png" alt="WattWise" className="h-full w-full object-contain" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">WattWise</span>
-                    <span className="truncate text-xs">Enterprise</span>
                   </div>
                 </Link>
               </SidebarMenuButton>

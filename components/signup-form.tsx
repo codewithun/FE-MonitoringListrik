@@ -30,8 +30,8 @@ export function SignupForm({
               href="/dashboard"
               className="flex flex-col items-center gap-2 font-medium"
             >
-              <div className="flex size-8 items-center justify-center rounded-md">
-                <GalleryVerticalEnd className="size-6" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-md overflow-hidden">
+                <img src="/logo.png" alt="WattWise Logo" className="h-full w-full object-contain" />
               </div>
               <span className="sr-only">WattWise</span>
             </Link>

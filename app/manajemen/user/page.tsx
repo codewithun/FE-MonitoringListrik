@@ -82,6 +82,7 @@ type UserRow = {
   status: UserStatus
   lastLogin: string
   note?: string
+  avatar?: string
 }
 
 type UserForm = {
@@ -148,6 +149,7 @@ function mapUserRow(item: unknown, index: number): UserRow {
     status: active ? "Aktif" : "Nonaktif",
     lastLogin: getString(item, ["lastLogin", "last_login", "updated_at"], "-"),
     note: getString(item, ["note", "catatan", "keterangan"]),
+    avatar: getString(item, ["avatar"]),
   }
 }
 
@@ -699,7 +701,18 @@ export default function Page() {
                     paginatedUserRows.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">
-                          {user.name}
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                              {user.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  {user.name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <span>{user.name}</span>
+                          </div>
                         </TableCell>
 
                         <TableCell>{user.email}</TableCell>

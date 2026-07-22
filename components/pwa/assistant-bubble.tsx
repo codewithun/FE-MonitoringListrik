@@ -1,12 +1,16 @@
 import * as React from "react"
 import { Bot, Send, User, X } from "lucide-react"
 import ReactMarkdown from "react-markdown"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+import "katex/dist/katex.min.css"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Marker, MarkerContent } from "@/components/ui/marker"
+import { apiRequest } from "@/lib/api-client"
 import {
   Message,
   MessageAvatar,
@@ -79,22 +83,49 @@ export function AssistantBubble({ devices, logs, prediction }: AssistantBubblePr
     setIsTyping(true)
 
     try {
-      // Format data untuk system prompt
-      const devicesInfo = devices.map(d => `- ${d.name} (ID: ${d.id}, Status: ${d.relayStatus})`).join('\n')
+      // Format data sangat ringkas untuk hemat token
+      const devicesInfo = devices.map(d => {
+        const deviceLogs = logs.filter(l => l.deviceId === d.deviceId);
+        const latestLog = deviceLogs.length > 0 ? deviceLogs[0] : null;
+
+        if (latestLog) {
+          return `[${d.name}|${d.relayStatus}] ${latestLog.power}W ${latestLog.voltage}V ${latestLog.current}A ${latestLog.energy}kWh`;
+        }
+        return `[${d.name}|${d.relayStatus}] NoData`;
+      }).join('; ');
+
       const predictionInfo = prediction 
-        ? `Prediksi biaya bulan ini: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(prediction.cost)}.`
-        : "Belum ada prediksi biaya."
+        ? `Prediksi AI untuk ${prediction.label || "Bulan Depan"}: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(prediction.cost)} (${prediction.energy}kWh)`
+        : "Prediksi AI: Belum tersedia";
 
-      const systemPrompt = `Anda adalah AI Smart Assistant bernama WattWise yang ramah dan cerdas. Tugas Anda adalah membantu pengguna memahami penggunaan listrik mereka.
-Gunakan bahasa Indonesia yang santai tapi sopan.
+      const currentDateString = new Date().toLocaleString('id-ID', { dateStyle: 'full' });
 
-Data rumah pengguna saat ini:
-Daftar Perangkat:
-${devicesInfo}
+      // Coba ambil riwayat pemakaian untuk menghitung proyeksi bulan ini
+      let projectionInfo = "";
+      try {
+        const res = await apiRequest('/api/data-listrik/history-monthly') as { success: boolean, data: any[] };
+        if (res.success && Array.isArray(res.data)) {
+          const currentMonthStr = new Date().toLocaleString('id-ID', { month: 'short' });
+          const currentMonthData = res.data.find((item: any) => item.month === currentMonthStr);
+          if (currentMonthData && Number(currentMonthData.energy) > 0) {
+            const today = Math.max(1, new Date().getDate());
+            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+            const tariff = (prediction && prediction.energy > 0) ? (prediction.cost / prediction.energy) : 1444.70;
+            const projectedEnergy = (Number(currentMonthData.energy) / today) * daysInMonth;
+            const projectedCost = projectedEnergy * tariff;
+            
+            projectionInfo = `Proyeksi Biaya Bulan Ini: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(projectedCost)} (${projectedEnergy.toFixed(2)}kWh). `;
+          }
+        }
+      } catch (e) {
+        console.error("Gagal mengambil history untuk proyeksi AI:", e);
+      }
 
-${predictionInfo}
-
-Jawablah pertanyaan pengguna berikut berdasarkan data di atas dengan singkat dan jelas. Jangan menjawab hal-hal yang tidak relevan dengan listrik atau sistem ini.`
+      const systemPrompt = `Role: WattWise AI. ATURAN: Jawab SINGKAT & PADAT (Max 3 kalimat/poin).
+Tanggal Hari Ini: ${currentDateString}.
+Rumus: W=V*A*PF, kWh=(W*Jam)/1000, Biaya=kWh*Tarif.
+Data: ${devicesInfo}. ${projectionInfo}${predictionInfo}.
+Tugas: Jawab sesuai data, to-the-point, tolak topik non-listrik.`;
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -194,6 +225,8 @@ Jawablah pertanyaan pengguna berikut berdasarkan data di atas dengan singkat dan
                               <BubbleContent>
                                 {typeof msg.content === "string" ? (
                                   <ReactMarkdown
+                                    remarkPlugins={[remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
                                     components={{
                                       p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
                                       ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-1 mb-2" {...props} />,

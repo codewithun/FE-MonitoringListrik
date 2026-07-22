@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Bell, Home, Moon, Plus, Smartphone, Sun } from "lucide-react"
+import { Bell, History, Home, Moon, Plus, Smartphone, Sun, User } from "lucide-react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { toast } from "sonner"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -36,10 +38,12 @@ import {
 } from "./pwa/types"
 import { HomeTab } from "./pwa/home-tab"
 import { PredictionTab } from "./pwa/prediction-tab"
+import { HistoryTab } from "./pwa/history-tab"
 import { AssistantBubble } from "./pwa/assistant-bubble"
-import { AddDialog } from "./pwa/add-dialog"
-import { ProfileDialog } from "./pwa/profile-dialog"
+import { AddTab } from "./pwa/add-tab"
+import { ProfileTab } from "./pwa/profile-tab"
 import { DeviceConfigDialog } from "./pwa/device-config-dialog"
+import { NotificationPanel, type NotificationItem, type NotificationType } from "./pwa/notification-panel"
 
 const LIGHT_PWA_THEME = {
   "--background": "#F8FAFC",
@@ -70,19 +74,60 @@ const LIGHT_PWA_THEME = {
 export function UserPwaApp({ user }: { user: SessionUser }) {
   const [activeTab, setActiveTab] = React.useState<TabKey>("home")
   const [pwaTheme, setPwaTheme] = React.useState<PwaTheme>("light")
-  
+
   const [houses, setHouses] = React.useState<House[]>([])
   const [devices, setDevices] = React.useState<Device[]>([])
   const [logs, setLogs] = React.useState<ElectricityLog[]>([])
   const [predictions, setPredictions] = React.useState<Prediction[]>([])
-  
+
   const [selectedDeviceId, setSelectedDeviceId] = React.useState("")
   const [message, setMessage] = React.useState("")
+  const [avatar, setAvatar] = React.useState("")
 
-  const [isProfileOpen, setIsProfileOpen] = React.useState(false)
+
   const [isNotificationOpen, setIsNotificationOpen] = React.useState(false)
-  const [isAddDeviceOpen, setIsAddDeviceOpen] = React.useState(false)
-  const [isMissingHouseAlertOpen, setIsMissingHouseAlertOpen] = React.useState(false)
+  const [notifications, setNotifications] = React.useState<NotificationItem[]>([])
+  const [notifiedLog, setNotifiedLog] = React.useState<Record<string, number>>({}) // To prevent spam
+
+  React.useEffect(() => {
+    // Load from local storage on mount
+    try {
+      const stored = localStorage.getItem(`notifications_${user.id}`)
+      if (stored) {
+        setNotifications(JSON.parse(stored))
+      }
+    } catch {
+      // ignore
+    }
+  }, [user.id])
+
+  React.useEffect(() => {
+    // Save to local storage when changed
+    if (notifications.length > 0 || localStorage.getItem(`notifications_${user.id}`)) {
+      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications))
+    }
+  }, [notifications, user.id])
+
+  const addNotification = React.useCallback((title: string, description: string, type: NotificationType = "info") => {
+    const newNotif: NotificationItem = {
+      id: Math.random().toString(36).substring(2, 9),
+      title,
+      description,
+      type,
+      timestamp: new Date().toISOString(),
+      read: false
+    }
+
+    setNotifications(prev => [newNotif, ...prev])
+
+    if (type === "power_limit" || type === "schedule") {
+      toast.warning(title, { description })
+    } else if (type === "success") {
+      toast.success(title, { description })
+    } else {
+      toast.info(title, { description })
+    }
+  }, [])
   const [addMode, setAddMode] = React.useState<AddMode>("device")
 
   const [configDevice, setConfigDevice] = React.useState<Device | null>(null)
@@ -98,6 +143,20 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       setPwaTheme(savedTheme)
     }
   }, [])
+
+  React.useEffect(() => {
+    const cached = window.localStorage.getItem(`avatar_${user.id}`)
+    if (cached) setAvatar(cached)
+    
+    apiRequest("/api/users").then(payload => {
+      const users = extractArray(payload) as Record<string, any>[]
+      const me = users.find(u => u.id === user.id)
+      if (me?.avatar) {
+        setAvatar(me.avatar)
+        window.localStorage.setItem(`avatar_${user.id}`, me.avatar)
+      }
+    }).catch(() => {})
+  }, [user.id])
 
   React.useEffect(() => {
     window.localStorage.setItem("wattwise-pwa-theme", pwaTheme)
@@ -173,9 +232,6 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
           ? current
           : nextDevices[0]?.deviceId || ""
       )
-      setIsMissingHouseAlertOpen((current) =>
-        current ? current : nextHouses.length === 0
-      )
       setLogs((current) => (nextDevices.length > 0 ? current : []))
     } catch (error) {
       setMessage(
@@ -243,6 +299,71 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     return () => window.clearInterval(intervalId)
   }, [loadRealtime])
 
+  // ================= NOTIFICATION CHECKER =================
+  React.useEffect(() => {
+    if (devices.length === 0) return
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    
+    devices.forEach((device) => {
+      const lockKeyLimit = `power_${device.deviceId}`
+      const lockKeySchedule = `schedule_${device.deviceId}`
+
+      // 1. Check Power Limit (Batas Daya)
+      if (device.batasDayaAktif && device.batasDaya && device.batasDaya > 0) {
+        // Find latest log for this device
+        const deviceLogs = logs.filter(l => l.deviceId === device.deviceId)
+        if (deviceLogs.length > 0) {
+          const latestPower = deviceLogs[0].power
+          if (latestPower >= device.batasDaya * 0.9) {
+            // Reached 90% or more
+            const lastNotified = notifiedLog[lockKeyLimit] || 0
+            const tenMinutes = 10 * 60 * 1000
+            
+            if (nowMs - lastNotified > tenMinutes) {
+              addNotification(
+                "Peringatan Batas Daya!",
+                `Perangkat ${device.name} telah mencapai ${latestPower}W (Batas: ${device.batasDaya}W).`,
+                "power_limit"
+              )
+              setNotifiedLog(prev => ({ ...prev, [lockKeyLimit]: nowMs }))
+            }
+          }
+        }
+      }
+
+      // 2. Check Schedule (Penjadwalan)
+      if (device.jadwalAktif && device.jadwalTanggal && device.jadwalWaktu) {
+        try {
+          const scheduleDateTime = new Date(`${device.jadwalTanggal}T${device.jadwalWaktu}`)
+          if (!isNaN(scheduleDateTime.getTime())) {
+            const timeDiff = scheduleDateTime.getTime() - nowMs
+            // If it's within the next 10 minutes (600,000 ms) and not passed
+            if (timeDiff > 0 && timeDiff <= 10 * 60 * 1000) {
+              const lastNotified = notifiedLog[lockKeySchedule] || 0
+              // Only notify once per schedule setup (or once a day)
+              // Since the timeDiff is narrow, we just prevent spamming within 30 mins
+              if (nowMs - lastNotified > 30 * 60 * 1000) {
+                const actionText = device.jadwalAksi === "OFF" ? "MATI" : "MENYALA"
+                const minutesLeft = Math.ceil(timeDiff / 60000)
+                addNotification(
+                  "Jadwal Akan Berjalan",
+                  `Perangkat ${device.name} akan otomatis ${actionText} dalam ${minutesLeft} menit.`,
+                  "schedule"
+                )
+                setNotifiedLog(prev => ({ ...prev, [lockKeySchedule]: nowMs }))
+              }
+            }
+          }
+        } catch {
+          // ignore invalid date parsing
+        }
+      }
+    })
+  }, [devices, logs, addNotification, notifiedLog])
+  // ========================================================
+
   async function toggleRelay(device: Device, nextChecked: boolean) {
     setSelectedDeviceId(device.deviceId)
 
@@ -277,9 +398,9 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     }
   }
 
-  function openAddFlow() {
+  const openAddFlow = () => {
     setAddMode("device")
-    setIsAddDeviceOpen(true)
+    switchTab("add")
   }
 
   return (
@@ -290,9 +411,22 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       <div className="mx-auto flex min-h-svh w-full max-w-md flex-col pb-24">
         <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-4 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-muted-foreground">WattWise</p>
-              <h1 className="text-xl font-semibold">Halo, {user.username}</h1>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="Buka profil"
+                onClick={() => switchTab("profile")}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <Avatar size="lg">
+                  <AvatarImage src={avatar} />
+                  <AvatarFallback>{avatarInitials}</AvatarFallback>
+                </Avatar>
+              </button>
+              <div>
+                <p className="text-sm text-muted-foreground">WattWise</p>
+                <h1 className="text-xl font-semibold">Halo, {user.username}</h1>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -324,18 +458,10 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                 className="relative rounded-full"
               >
                 <Bell className="size-5" />
-                <span className="absolute right-2 top-2 size-2 rounded-full bg-primary" />
+                {notifications.some(n => !n.read) && (
+                  <span className="absolute right-2 top-2 size-2 rounded-full bg-primary" />
+                )}
               </Button>
-              <button
-                type="button"
-                aria-label="Buka profil"
-                onClick={() => setIsProfileOpen(true)}
-                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <Avatar size="lg">
-                  <AvatarFallback>{avatarInitials}</AvatarFallback>
-                </Avatar>
-              </button>
             </div>
           </div>
         </header>
@@ -364,71 +490,91 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         ) : null}
 
         {activeTab === "prediction" ? (
-          <PredictionTab prediction={predictions[0]} />
+          <PredictionTab
+            prediction={predictions.find(p => p.month === new Date().getMonth() + 1 && p.year === new Date().getFullYear()) || predictions[0]}
+            selectedDeviceId={selectedDeviceId}
+          />
+        ) : null}
+
+        {activeTab === "history" ? (
+          <HistoryTab devices={devices} />
+        ) : null}
+
+        {activeTab === "add" ? (
+          <AddTab
+            initialMode={addMode}
+            houses={houses}
+            user={user}
+            onSuccess={loadMainData}
+            setMessage={setMessage}
+          />
+        ) : null}
+
+        {activeTab === "profile" ? (
+          <ProfileTab
+            user={user}
+            houses={houses}
+            avatar={avatar}
+            setAvatar={setAvatar}
+            onSuccess={loadMainData}
+            setMessage={setMessage}
+            onAddHouseClick={() => {
+              setAddMode("house")
+              switchTab("add")
+            }}
+          />
         ) : null}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-[100] border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+      <nav className="fixed inset-x-0 bottom-0 z-[100] border-t bg-white dark:bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {[
             { key: "home" as const, label: "Home", icon: Home },
+            { key: "history" as const, label: "Riwayat", icon: History },
             { key: "add" as const, label: "Tambah", icon: Plus },
             { key: "prediction" as const, label: "Biaya", icon: Smartphone },
+            { key: "profile" as const, label: "Profil", icon: User },
           ].map((item) => {
             const Icon = item.icon
-            const active = item.key !== "add" && activeTab === item.key
+            const isAdd = item.key === "add"
+            const active = activeTab === item.key
+
+            if (isAdd) {
+              return (
+                <div key={item.key} className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => openAddFlow()}
+                    className="flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-[#2563eb] text-white shadow-md transition-transform hover:scale-105 active:scale-95"
+                  >
+                    <Icon className="size-6 stroke-[2.5]" />
+                  </button>
+                </div>
+              )
+            }
 
             return (
               <button
                 key={item.key}
                 type="button"
                 aria-pressed={active}
-                onClick={() =>
-                  item.key === "add" ? openAddFlow() : switchTab(item.key)
-                }
-                className={`flex h-12 flex-col items-center justify-center rounded-md text-xs ${
+                onClick={() => switchTab(item.key)}
+                className={`relative flex h-14 flex-col items-center justify-center text-[10px] transition-all duration-200 ${
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : item.key === "add"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground"
+                    ? "text-[#2563eb] font-semibold"
+                    : "text-slate-400 bg-transparent hover:text-slate-600 dark:hover:text-slate-300"
                 }`}
               >
-                <Icon className="size-4" />
-                {item.label}
+                <Icon className={`mb-1 ${active ? "size-6 stroke-[2.5]" : "size-5 stroke-2"}`} />
+                <span>{item.label}</span>
+                {active && (
+                  <span className="absolute bottom-1 h-1 w-8 rounded-full bg-[#2563eb]" />
+                )}
               </button>
             )
           })}
         </div>
       </nav>
-
-      <ProfileDialog
-        isOpen={isProfileOpen}
-        onOpenChange={setIsProfileOpen}
-        user={user}
-        houses={houses}
-        onSuccess={loadMainData}
-        setMessage={setMessage}
-        pwaThemeStyle={pwaThemeStyle}
-        onAddHouseClick={() => {
-          setAddMode("house")
-          setIsAddDeviceOpen(true)
-        }}
-      />
-
-      <AddDialog
-        isOpen={isAddDeviceOpen}
-        onOpenChange={setIsAddDeviceOpen}
-        addMode={addMode}
-        setAddMode={setAddMode}
-        houses={houses}
-        user={user}
-        onSuccess={loadMainData}
-        setMessage={setMessage}
-        isMissingHouseAlertOpen={isMissingHouseAlertOpen}
-        setIsMissingHouseAlertOpen={setIsMissingHouseAlertOpen}
-        pwaThemeStyle={pwaThemeStyle}
-      />
 
       <DeviceConfigDialog
         open={isConfigDeviceOpen}
@@ -443,17 +589,21 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         }}
       />
 
-      <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
-        <DialogContent className="max-w-md" style={pwaThemeStyle}>
-          <DialogHeader>
-            <DialogTitle>Pesan</DialogTitle>
-            <DialogDescription>Notifikasi akun dan perangkat.</DialogDescription>
-          </DialogHeader>
-          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-            Belum ada pesan baru.
-          </div>
-        </DialogContent>
-      </Dialog>
+      <NotificationPanel
+        open={isNotificationOpen}
+        onOpenChange={setIsNotificationOpen}
+        notifications={notifications}
+        onMarkAllRead={() => {
+          setNotifications(prev => {
+            if (prev.some(n => !n.read)) {
+              return prev.map(n => ({ ...n, read: true }))
+            }
+            return prev
+          })
+        }}
+        onClearAll={() => setNotifications([])}
+        pwaThemeStyle={pwaThemeStyle}
+      />
 
       <AssistantBubble
         devices={devices}

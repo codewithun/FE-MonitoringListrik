@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-client"
 import type { SessionUser } from "@/lib/auth-constants"
 
-export type TabKey = "home" | "prediction"
+export type TabKey = "home" | "prediction" | "history" | "profile" | "add"
 export type RelayStatus = "ON" | "OFF"
 export type PwaTheme = "light" | "dark"
 export type AddMode = "house" | "device"
@@ -60,6 +60,9 @@ export type Prediction = {
   energy: number
   houseId: string
   deviceId: string
+  accuracy?: string
+  month?: number
+  year?: number
 }
 
 export function mapHouse(item: unknown, _index: number): House {
@@ -231,6 +234,8 @@ export function mapPrediction(item: unknown, index: number): Prediction {
     energy: getNumber(item, ["energy", "energi", "kwh", "prediksi_kwh", "prediksi_energi_kwh"], 0),
     houseId: getString(item, ["houseId", "rumah_id", "id_rumah"], ""),
     deviceId: getString(item, ["deviceId", "device_id", "id_perangkat", "perangkat_id"], ""),
+    month: bulan > 0 ? bulan : undefined,
+    year: tahun > 0 ? tahun : undefined,
   }
 }
 
