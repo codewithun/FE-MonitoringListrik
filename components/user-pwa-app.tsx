@@ -424,7 +424,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                 </Avatar>
               </button>
               <div>
-                <p className="text-sm text-muted-foreground">WattWise</p>
+                <p className="text-sm font-bold tracking-tight"><span className="text-blue-600">Watt</span><span className="text-yellow-500">Wise</span></p>
                 <h1 className="text-xl font-semibold">Halo, {user.username}</h1>
               </div>
             </div>

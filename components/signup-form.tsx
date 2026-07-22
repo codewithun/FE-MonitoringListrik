@@ -14,6 +14,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 
 export function SignupForm({
   className,
@@ -35,7 +36,7 @@ export function SignupForm({
               </div>
               <span className="sr-only">WattWise</span>
             </Link>
-            <h1 className="text-xl font-bold">Daftar Akun WattWise</h1>
+            <h1 className="text-xl font-bold">Daftar Akun <span className="text-blue-600">Watt</span><span className="text-yellow-500">Wise</span></h1>
             <FieldDescription>
               Sudah punya akun? <Link href="/login">Masuk</Link>
             </FieldDescription>
@@ -69,10 +70,9 @@ export function SignupForm({
           </Field>
           <Field>
             <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               placeholder="Minimal 8 karakter"
               autoComplete="new-password"
               required
@@ -80,10 +80,9 @@ export function SignupForm({
           </Field>
           <Field>
             <FieldLabel htmlFor="confirmPassword">Konfirmasi Password</FieldLabel>
-            <Input
+            <PasswordInput
               id="confirmPassword"
               name="confirmPassword"
-              type="password"
               placeholder="Ulangi password"
               autoComplete="new-password"
               required

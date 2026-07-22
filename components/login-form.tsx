@@ -14,6 +14,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 
 export function LoginForm({
   className,
@@ -35,7 +36,7 @@ export function LoginForm({
               </div>
               <span className="sr-only">WattWise</span>
             </Link>
-            <h1 className="text-xl font-bold">Masuk ke WattWise</h1>
+            <h1 className="text-xl font-bold">Masuk ke <span className="text-blue-600">Watt</span><span className="text-yellow-500">Wise</span></h1>
             <FieldDescription>
               Belum punya akun? <Link href="/signup">Daftar</Link>
             </FieldDescription>
@@ -58,10 +59,9 @@ export function LoginForm({
           </Field>
           <Field>
             <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               placeholder="Masukkan password"
               autoComplete="current-password"
               required

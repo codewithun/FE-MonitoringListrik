@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -253,8 +254,9 @@ export function ProfileTab({
                 <KeyRound className="h-5 w-5 text-muted-foreground/70" />
                 <div className="flex flex-1 flex-col min-w-0">
                   <Label className="text-[10px] uppercase text-muted-foreground">Kata Sandi</Label>
-                  <Input
-                    type="password"
+                  <PasswordInput
+                    id="new-password"
+                    name="password"
                     className="h-6 w-full max-w-full border-0 bg-transparent p-0 text-sm font-medium focus-visible:ring-0 shadow-none"
                     placeholder="Ketik sandi baru untuk mengubah"
                     autoComplete="new-password"

@@ -118,7 +118,7 @@ export function AppSidebar({
                     <img src="/logo.png" alt="WattWise" className="h-full w-full object-contain" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">WattWise</span>
+                    <span className="truncate font-bold tracking-tight"><span className="text-blue-600">Watt</span><span className="text-yellow-500">Wise</span></span>
                   </div>
                 </Link>
               </SidebarMenuButton>

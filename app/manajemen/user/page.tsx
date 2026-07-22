@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import {
   Pagination,
@@ -496,9 +497,8 @@ export default function Page() {
                   <Label htmlFor="user-password">
                     {editingId ? "Password Baru" : "Password Awal"}
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="user-password"
-                    type="password"
                     value={form.password}
                     onChange={(event) =>
                       setForm((current) => ({
