@@ -83,12 +83,7 @@ type ElectricityLog = {
   powerFactor: number
 }
 
-const chartConfig = {
-  power: {
-    label: "Daya",
-    color: "var(--chart-1)",
-  },
-} satisfies ChartConfig
+
 
 function normalizeDeviceStatus(status: string): DeviceStatus {
   return status.toLowerCase().includes("offline") ? "Offline" : "Online"
@@ -240,14 +235,32 @@ export default function Page() {
   const onlineDevices = devices.filter((device) => device.status === "Online").length
   const relayOnDevices = devices.filter((device) => device.relayStatus === "ON").length
   const offlineDevices = devices.length - onlineDevices
-  const chartRows = logs
-    .slice()
+  const chartConfig = React.useMemo(() => {
+    const config: ChartConfig = {}
+    if (devices.length === 0) {
+      config.power = { label: "Daya", color: "var(--chart-1)" }
+    } else {
+      devices.forEach((device, index) => {
+        const safeKey = device.deviceCode.replace(/[^a-zA-Z0-9]/g, "_")
+        config[safeKey] = {
+          label: device.name || device.deviceCode,
+          color: `var(--chart-${(index % 5) + 1})`,
+        }
+      })
+    }
+    return config
+  }, [devices])
+
+  const logsByTime = new Map<string, Record<string, any>>()
+  logs.slice()
     .sort((first, second) => getTimeValue(first.time) - getTimeValue(second.time))
-    .slice(-30)
-    .map((item) => ({
-      time: formatTime(item.time),
-      power: item.power,
-    }))
+    .forEach((item) => {
+      const t = formatTime(item.time)
+      if (!logsByTime.has(t)) logsByTime.set(t, { time: t })
+      const safeKey = item.deviceId ? item.deviceId.replace(/[^a-zA-Z0-9]/g, "_") : "power"
+      logsByTime.get(t)![safeKey] = item.power
+    })
+  const chartRows = Array.from(logsByTime.values()).slice(-30)
 
   const topDevices = devices
     .map((device) => ({
@@ -375,14 +388,32 @@ export default function Page() {
                       cursor={false}
                       content={<ChartTooltipContent indicator="line" />}
                     />
-                    <Area
-                      dataKey="power"
-                      type="monotone"
-                      fill="var(--color-power)"
-                      fillOpacity={0.35}
-                      stroke="var(--color-power)"
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
+                    {devices.length === 0 ? (
+                      <Area
+                        dataKey="power"
+                        type="monotone"
+                        fill="var(--color-power)"
+                        fillOpacity={0.35}
+                        stroke="var(--color-power)"
+                      />
+                    ) : (
+                      devices.map((device) => {
+                        const safeKey = device.deviceCode.replace(/[^a-zA-Z0-9]/g, "_")
+                        return (
+                          <Area
+                            key={safeKey}
+                            dataKey={safeKey}
+                            name={device.name || device.deviceCode}
+                            type="monotone"
+                            fill={`var(--color-${safeKey})`}
+                            fillOpacity={0.35}
+                            stroke={`var(--color-${safeKey})`}
+                            connectNulls={true}
+                          />
+                        )
+                      })
+                    )}
+                    <ChartLegend content={<ChartLegendContent className="flex-wrap" />} />
                   </AreaChart>
                 </ChartContainer>
               ) : (

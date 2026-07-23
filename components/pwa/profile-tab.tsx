@@ -205,7 +205,7 @@ export function ProfileTab({
 
   if (activeView === "edit-account") {
     return (
-      <section className="min-h-screen space-y-4 bg-slate-50/50 pb-24 pt-4 dark:bg-transparent animate-in slide-in-from-right-4 duration-300">
+      <section className="space-y-4 bg-slate-50/50 pb-4 pt-4 dark:bg-transparent animate-in slide-in-from-right-4 duration-300">
         <div className="px-4 flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => { resetAccountState(); setActiveView("main") }} className="h-8 w-8 rounded-full shrink-0">
             <ChevronLeft className="h-5 w-5" />
@@ -277,7 +277,7 @@ export function ProfileTab({
 
   if (activeView === "edit-house") {
     return (
-      <section className="min-h-screen space-y-4 bg-slate-50/50 pb-24 pt-4 dark:bg-transparent animate-in slide-in-from-right-4 duration-300">
+      <section className="space-y-4 bg-slate-50/50 pb-4 pt-4 dark:bg-transparent animate-in slide-in-from-right-4 duration-300">
         <div className="px-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => { resetHouseState(); setActiveView("main") }} className="h-8 w-8 rounded-full shrink-0">
@@ -377,7 +377,7 @@ export function ProfileTab({
   }
 
   return (
-    <section className="min-h-screen space-y-6 bg-slate-50/50 pb-24 pt-4 dark:bg-transparent animate-in fade-in duration-500">
+    <section className="space-y-6 bg-slate-50/50 pb-4 pt-4 dark:bg-transparent animate-in fade-in duration-500">
 
       {/* Header Profile */}
       <div className="flex flex-col items-center justify-center space-y-3 pt-4 pb-2">

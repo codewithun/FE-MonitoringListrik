@@ -184,11 +184,10 @@ export function HomeTab({
 
       {!hasLinkedHouse ? (
         <Card className="border-dashed">
-          <CardContent className="space-y-2 p-4 text-sm">
+          <CardContent className="space-y-1 py-2.5 px-4 text-sm">
             <p className="font-medium">Akun belum tersambung ke rumah.</p>
             <p className="text-muted-foreground">
-              Setelah admin menghubungkan akun ini ke rumah, data perangkat,
-              realtime, dan prediksi akan muncul di sini.
+              Tambahkan rumah terlebih dahulu untuk menampilkan data perangkat, monitoring realtime, dan prediksi konsumsi listrik.
             </p>
           </CardContent>
         </Card>

@@ -58,7 +58,12 @@ export function LoginForm({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <div className="flex items-center justify-between">
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary underline underline-offset-4">
+                Lupa password?
+              </Link>
+            </div>
             <PasswordInput
               id="password"
               name="password"

@@ -126,3 +126,99 @@ export async function logoutAction() {
   cookieStore.delete(SESSION_COOKIE)
   redirect("/login")
 }
+
+export async function requestOtpAction(_state: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") || "").trim().toLowerCase()
+
+  if (!email) {
+    return { message: "Email wajib diisi." }
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(`${getBackendUrl()}/api/auth/request-reset-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    return { message: `Backend tidak bisa dihubungi di ${getBackendUrl()}.` }
+  }
+
+  const body = (await response.json().catch(() => null)) as AuthResponse | null
+
+  if (!response.ok || !body?.success) {
+    return { message: body?.message || "Gagal mengirim OTP. Pastikan email terdaftar." }
+  }
+
+  return { message: "SUCCESS_OTP:" + email + ":" + Date.now() }
+}
+
+export async function verifyOtpAction(_state: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") || "").trim().toLowerCase()
+  const otp = String(formData.get("otp") || "").trim()
+
+  if (!email || !otp) {
+    return { message: "Email dan OTP wajib diisi." }
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(`${getBackendUrl()}/api/auth/verify-reset-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+    })
+  } catch {
+    return { message: `Backend tidak bisa dihubungi di ${getBackendUrl()}.` }
+  }
+
+  const body = (await response.json().catch(() => null)) as AuthResponse | null
+
+  if (!response.ok || !body?.success) {
+    return { message: body?.message || "Gagal verifikasi OTP." }
+  }
+
+  return { message: "SUCCESS_VERIFY:" + email }
+}
+
+export async function resetPasswordWithOtpAction(_state: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") || "").trim().toLowerCase()
+  const otp = String(formData.get("otp") || "").trim()
+  const newPassword = String(formData.get("newPassword") || "")
+  const confirmPassword = String(formData.get("confirmPassword") || "")
+
+  if (!email || !otp || !newPassword) {
+    return { message: "Email, OTP, dan password baru wajib diisi." }
+  }
+
+  if (newPassword.length < 8) {
+    return { message: "Password baru minimal 8 karakter." }
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { message: "Konfirmasi password belum sama." }
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(`${getBackendUrl()}/api/auth/reset-password-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp, newPassword }),
+    })
+  } catch {
+    return { message: `Backend tidak bisa dihubungi di ${getBackendUrl()}.` }
+  }
+
+  const body = (await response.json().catch(() => null)) as AuthResponse | null
+
+  if (!response.ok || !body?.success) {
+    return { message: body?.message || "Gagal mereset password. Pastikan kode OTP benar dan belum kedaluwarsa." }
+  }
+
+  return { message: "SUCCESS_RESET:" + (body.message || "Password berhasil diubah. Silakan masuk.") }
+}

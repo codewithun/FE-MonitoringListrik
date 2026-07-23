@@ -409,7 +409,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       style={pwaThemeStyle}
     >
       <div className="mx-auto flex min-h-svh w-full max-w-md flex-col pb-24">
-        <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-4 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b shadow-sm bg-background/95 px-4 py-4 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button
@@ -491,7 +491,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
 
         {activeTab === "prediction" ? (
           <PredictionTab
-            prediction={predictions.find(p => p.month === new Date().getMonth() + 1 && p.year === new Date().getFullYear()) || predictions[0]}
+            predictions={predictions}
             selectedDeviceId={selectedDeviceId}
           />
         ) : null}

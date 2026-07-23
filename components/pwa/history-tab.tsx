@@ -94,7 +94,7 @@ export function HistoryTab({ devices }: HistoryTabProps) {
   }, [historyData])
 
   return (
-    <section className="space-y-4 p-4 pb-24">
+    <section className="space-y-4 p-4">
       <div className="flex items-center gap-2 mb-2">
         <History className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-semibold tracking-tight">Riwayat Data</h2>

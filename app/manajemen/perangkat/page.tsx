@@ -206,7 +206,7 @@ function mapDeviceRow(item: unknown, index: number): DeviceRow {
     status: normalizeDeviceStatus(getString(item, ["status", "status_perangkat"], "Online")),
     powerW: getNumber(item, ["powerW", "power", "daya", "daya_watt"], 0),
     relayStatus: relayOn ? "ON" : "OFF",
-    lastUpdate: getString(item, ["lastUpdate", "updated_at", "waktu"], "-"),
+    lastUpdate: formatTime(getString(item, ["lastUpdate", "updated_at", "waktu"], "-")),
     note: getString(item, ["note", "catatan", "keterangan"]),
   }
 }
@@ -237,6 +237,19 @@ function getReadingTimeValue(reading: ElectricityLog) {
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
+function formatTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date)
+}
+
 function mergeLatestReadings(
   devices: DeviceRow[],
   readings: ElectricityLog[]
@@ -261,7 +274,7 @@ function mergeLatestReadings(
     return {
       ...device,
       powerW: device.relayStatus === "OFF" ? 0 : latestReading.power,
-      lastUpdate: latestReading.time,
+      lastUpdate: formatTime(latestReading.time),
     }
   })
 }
@@ -302,9 +315,11 @@ export default function Page() {
 
   const pageSize = 5
 
-  const loadDevices = React.useCallback(async () => {
-    setIsLoading(true)
-    setErrorMessage("")
+  const loadDevices = React.useCallback(async (isBackground = false) => {
+    if (!isBackground) {
+      setIsLoading(true)
+      setErrorMessage("")
+    }
 
     try {
       const [devicePayload, historyPayload] = await Promise.all([
@@ -341,24 +356,33 @@ export default function Page() {
       ]
 
       setDeviceRows(mergeLatestReadings(nextDevices, latestReadings))
-      setCurrentPage(1)
+      if (!isBackground) {
+        setCurrentPage(1)
+      }
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil data perangkat."
-      )
-      setDeviceRows([])
+      if (!isBackground) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data perangkat."
+        )
+        setDeviceRows([])
+      }
     } finally {
-      setIsLoading(false)
+      if (!isBackground) {
+        setIsLoading(false)
+      }
     }
   }, [])
 
   React.useEffect(() => {
-    void Promise.resolve().then(loadDevices)
+    void Promise.resolve().then(() => loadDevices(false))
     
-    // Cleanup function
-    return () => {}
+    const intervalId = window.setInterval(() => {
+      void loadDevices(true)
+    }, 10000)
+
+    return () => window.clearInterval(intervalId)
   }, [])
 
   const loadHouseOptions = React.useCallback(async () => {
@@ -379,12 +403,11 @@ export default function Page() {
     void Promise.resolve().then(loadHouseOptions)
   }, [loadHouseOptions])
 
-  async function openDeviceDetail(device: DeviceRow) {
-    setDetailDevice(device)
-    setDetailOpen(true)
-    setDetailLoading(true)
-    setDetailError("")
-    setDetailRows([])
+  const loadDeviceDetail = React.useCallback(async (device: DeviceRow, isBackground = false) => {
+    if (!isBackground) {
+      setDetailLoading(true)
+      setDetailError("")
+    }
 
     try {
       const payload = await apiRequest<unknown>(
@@ -392,17 +415,41 @@ export default function Page() {
           device.deviceCode
         )}&limit=30`
       )
-      setDetailRows(extractArray(payload).map(mapElectricityLog).reverse())
+      const formatted = extractArray(payload).map(mapElectricityLog).reverse().map(log => ({
+        ...log,
+        time: formatTime(log.time)
+      }))
+      setDetailRows(formatted)
     } catch (error) {
-      setDetailError(
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil detail realtime perangkat."
-      )
+      if (!isBackground) {
+        setDetailError(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil detail realtime perangkat."
+        )
+      }
     } finally {
-      setDetailLoading(false)
+      if (!isBackground) {
+        setDetailLoading(false)
+      }
     }
+  }, [])
+
+  async function openDeviceDetail(device: DeviceRow) {
+    setDetailDevice(device)
+    setDetailOpen(true)
+    setDetailRows([])
+    await loadDeviceDetail(device)
   }
+
+  React.useEffect(() => {
+    if (!detailOpen || !detailDevice) return
+    const intervalId = window.setInterval(() => {
+      void loadDeviceDetail(detailDevice, true)
+    }, 5000)
+    return () => window.clearInterval(intervalId)
+  }, [detailOpen, detailDevice, loadDeviceDetail])
+
 
   const totalDevices = deviceRows.length
   const onlineCount = deviceRows.filter(
