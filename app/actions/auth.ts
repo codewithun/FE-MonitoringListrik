@@ -89,7 +89,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
   }
 
   await setSession(result.user)
-  redirect(result.user.role === "user" ? "/user" : "/dashboard")
+  redirect(result.user.role === "user" ? "/user" : "/admin/dashboard")
 }
 
 export async function signupAction(_state: AuthState, formData: FormData): Promise<AuthState> {
@@ -124,7 +124,7 @@ export async function logoutAction() {
   const cookieStore = await cookies()
 
   cookieStore.delete(SESSION_COOKIE)
-  redirect("/login")
+  redirect("/user/login")
 }
 
 export async function requestOtpAction(_state: AuthState, formData: FormData): Promise<AuthState> {

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { SESSION_COOKIE, type SessionUser } from "@/lib/auth-constants"
 
-const publicRoutes = ["/login", "/signup", "/forgot-password"]
-const adminOnlyRoutes = ["/dashboard", "/manajemen", "/monitoring", "/analisis", "/settings"]
+const publicRoutes = ["/user/login", "/admin/login", "/signup", "/forgot-password"]
+const adminOnlyRoutes = ["/admin/dashboard", "/admin/manajemen", "/admin/monitoring", "/analisis", "/settings"]
 const userOnlyRoutes = ["/user"]
 
 export function proxy(request: NextRequest) {
@@ -24,12 +24,12 @@ export function proxy(request: NextRequest) {
 
   // Redirect to login if accessing protected routes without auth
   if (!isAuthenticated && !isPublicRoute) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    return NextResponse.redirect(new URL("/user/login", request.url))
   }
 
   // Redirect to respective dashboard if already authenticated and accessing public routes
   if (isAuthenticated && isPublicRoute) {
-    return NextResponse.redirect(new URL(user?.role === "admin" ? "/dashboard" : "/user", request.url))
+    return NextResponse.redirect(new URL(user?.role === "admin" ? "/admin/dashboard" : "/user", request.url))
   }
 
   // Role Based Access Control (RBAC)
@@ -44,7 +44,7 @@ export function proxy(request: NextRequest) {
 
     if (isUserRoute && user.role !== "user") {
       // Admin trying to access User route
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url))
     }
   }
 

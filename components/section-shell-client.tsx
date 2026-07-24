@@ -32,9 +32,9 @@ import {
 } from "@/components/ui/sidebar"
 
 const sectionLabels: Record<string, { label: string; href: string }> = {
-  dashboard: { label: "Dashboard", href: "/dashboard" },
-  manajemen: { label: "Manajemen Data", href: "/manajemen" },
-  monitoring: { label: "Monitoring", href: "/monitoring" },
+  dashboard: { label: "Dashboard", href: "/admin/dashboard" },
+  manajemen: { label: "Manajemen Data", href: "/admin/manajemen" },
+  monitoring: { label: "Monitoring", href: "/admin/monitoring" },
   analisis: { label: "Analisis", href: "/analisis" },
   settings: { label: "Settings", href: "/settings" },
 }
@@ -109,10 +109,13 @@ const LIGHT_ADMIN_THEME = {
 
 function getBreadcrumbItems(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
-  const [sectionSlug, childSlug] = segments
+  const isAdminRoute = segments[0] === "admin"
+  
+  const sectionSlug = isAdminRoute ? segments[1] : segments[0]
+  const childSlug = isAdminRoute ? segments[2] : segments[1]
 
   if (!sectionSlug) {
-    return [{ label: "Dashboard", href: "/dashboard", current: true }]
+    return [{ label: "Dashboard", href: "/admin/dashboard", current: true }]
   }
 
   const section = sectionLabels[sectionSlug]

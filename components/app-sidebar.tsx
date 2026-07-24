@@ -43,55 +43,55 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard",
+      url: "/admin/dashboard",
       icon: Gauge,
     },
     {
       title: "Manajemen Data",
-      url: "/manajemen",
+      url: "/admin/manajemen",
       icon: Layers,
       items: [
         {
           title: "User",
-          url: "/manajemen/user",
+          url: "/admin/manajemen/user",
         },
         {
           title: "Rumah",
-          url: "/manajemen/rumah",
+          url: "/admin/manajemen/rumah",
         },
         {
           title: "Tarif Listrik",
-          url: "/manajemen/tarif-listrik",
+          url: "/admin/manajemen/tarif-listrik",
         },
       ],
     },
     {
       title: "Perangkat",
-      url: "/manajemen/perangkat",
+      url: "/admin/manajemen/perangkat",
       icon: Cpu,
       items: [
         {
           title: "Data Perangkat",
-          url: "/manajemen/perangkat",
+          url: "/admin/manajemen/perangkat",
         },
         {
           title: "Penjadwalan",
-          url: "/manajemen/perangkat/penjadwalan",
+          url: "/admin/manajemen/perangkat/penjadwalan",
         },
         {
           title: "Pengaturan Daya",
-          url: "/manajemen/perangkat/pengaturan-daya",
+          url: "/admin/manajemen/perangkat/pengaturan-daya",
         },
       ],
     },
     {
       title: "Monitoring",
-      url: "/monitoring",
+      url: "/admin/monitoring",
       icon: TvMinimal,
       items: [
         {
           title: "Data Listrik",
-          url: "/monitoring/realtime",
+          url: "/admin/monitoring/realtime",
         },
       ],
     },
@@ -113,7 +113,7 @@ export function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/dashboard" onClick={showNavigationLoading}>
+                <Link href="/admin/dashboard" onClick={showNavigationLoading}>
                   <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
                     <img src="/logo.png" alt="WattWise" className="h-full w-full object-contain" />
                   </div>

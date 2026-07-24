@@ -1,10 +1,10 @@
-import { SignupForm } from "@/components/signup-form"
+import { LoginForm } from "@/components/login-form"
 
-export default function SignupPage() {
+export default function LoginPage() {
   return (
     <div className="flex min-h-svh flex-col bg-[#05050f] text-white">
       <div className="w-full flex-1 flex flex-col justify-center">
-        <SignupForm />
+        <LoginForm role="user" />
       </div>
     </div>
   )
