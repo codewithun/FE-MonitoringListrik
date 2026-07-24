@@ -904,23 +904,6 @@ export default function Page() {
                   </Select>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="device-power">Daya Saat Ini</Label>
-                  <Input
-                    id="device-power"
-                    type="number"
-                    min={0}
-                    value={form.powerW}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        powerW: event.target.value,
-                      }))
-                    }
-                    placeholder="Contoh: 240"
-                    required
-                  />
-                </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-4 md:col-span-2">
                   <div className="space-y-1">
