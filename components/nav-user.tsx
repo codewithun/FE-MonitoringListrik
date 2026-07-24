@@ -8,7 +8,7 @@ import {
   LogOut,
 } from "lucide-react"
 
-import { logoutAction } from "@/app/actions/auth"
+import { adminLogoutAction } from "@/app/actions/auth"
 import {
   Avatar,
   AvatarFallback,
@@ -92,7 +92,7 @@ export function NavUser({
               onSelect={(event) => {
                 event.preventDefault()
                 startTransition(() => {
-                  void logoutAction()
+                  void adminLogoutAction()
                 })
               }}
             >

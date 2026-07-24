@@ -29,9 +29,9 @@ export function SignupForm({
           {/* Custom PWA Header */}
           <div className="flex flex-col items-center gap-4 text-center mt-2 mb-4">
             <div className="flex items-center justify-center">
-              <img src="/logo.png" alt="WattWise Logo" className="h-14 w-14 object-contain" />
+              <img src="/logo.png" alt="WattWise Logo" className="h-24 w-24 object-contain" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Daftar Akun</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-2">Daftar Akun</h1>
           </div>
 
           {state.message ? (
@@ -42,7 +42,7 @@ export function SignupForm({
 
           <div className="flex flex-col gap-5">
             <div className="space-y-2">
-              <label htmlFor="username" className="text-sm font-medium text-white/90">Username</label>
+              <label htmlFor="username" className="text-sm font-medium text-slate-700">Username</label>
               <Input
                 id="username"
                 name="username"
@@ -50,12 +50,12 @@ export function SignupForm({
                 placeholder="namauser"
                 autoComplete="username"
                 required
-                className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500"
+                className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-white/90">Email address</label>
+              <label htmlFor="email" className="text-sm font-medium text-slate-700">Email address</label>
               <Input
                 id="email"
                 name="email"
@@ -63,31 +63,31 @@ export function SignupForm({
                 placeholder="user@monitoring-listrik.local"
                 autoComplete="email"
                 required
-                className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500"
+                className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-white/90">Password</label>
+              <label htmlFor="password" className="text-sm font-medium text-slate-700">Password</label>
               <PasswordInput
                 id="password"
                 name="password"
                 placeholder="Minimal 8 karakter"
                 autoComplete="new-password"
                 required
-                className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-white/50 hover:[&_button]:text-white"
+                className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-slate-500 hover:[&_button]:text-slate-900"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium text-white/90">Konfirmasi Password</label>
+              <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">Konfirmasi Password</label>
               <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                placeholder="Ulangi password"
+                placeholder="Ketik ulang password"
                 autoComplete="new-password"
                 required
-                className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-white/50 hover:[&_button]:text-white"
+                className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-slate-500 hover:[&_button]:text-slate-900"
               />
             </div>
           </div>
@@ -97,13 +97,13 @@ export function SignupForm({
             disabled={pending}
             className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white py-7 text-lg font-semibold mt-4 transition-colors"
           >
-            {pending ? <Loader2 className="animate-spin mr-2" /> : null}
-            {pending ? "Mendaftarkan..." : "Daftar Akun"}
+            {pending && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+            {pending ? "Mendaftar..." : "Daftar Sekarang"}
           </Button>
 
           <div className="text-center mt-6">
-            <p className="text-sm text-white/50 font-medium">
-              Sudah punya akun? <Link href="/user/login" className="text-blue-500 hover:text-blue-400 hover:underline ml-1">Masuk</Link>
+            <p className="text-sm text-slate-500 font-medium">
+              Sudah punya akun? <Link href="/user/login" className="text-blue-500 hover:text-blue-600 hover:underline ml-1">Masuk</Link>
             </p>
           </div>
         </div>

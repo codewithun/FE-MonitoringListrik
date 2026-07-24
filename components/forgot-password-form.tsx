@@ -79,9 +79,9 @@ export function ForgotPasswordForm({
             <div className="flex flex-col gap-6 px-6 h-full w-full max-w-md mx-auto">
               <div className="flex flex-col items-center gap-4 text-center mb-2">
                 <div className="flex items-center justify-center">
-                  <img src="/logo.png" alt="WattWise Logo" className="h-14 w-14 object-contain" />
+                  <img src="/logo.png" alt="WattWise Logo" className="h-24 w-24 object-contain" />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Lupa Password</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-2">Lupa Password</h1>
               </div>
 
               {otpState.message && !isOtpSuccess ? (
@@ -92,7 +92,7 @@ export function ForgotPasswordForm({
 
               <div className="flex flex-col gap-5">
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-white/90">Email address</label>
+                  <label htmlFor="email" className="text-sm font-medium text-slate-700">Email address</label>
                   <Input
                     id="email"
                     name="email"
@@ -100,7 +100,7 @@ export function ForgotPasswordForm({
                     placeholder="tanya.hill@example.com"
                     autoComplete="email"
                     required
-                    className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500"
+                    className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500"
                   />
                 </div>
               </div>
@@ -115,8 +115,8 @@ export function ForgotPasswordForm({
               </Button>
 
               <div className="text-center mt-6">
-                <p className="text-sm text-white/50 font-medium">
-                  Ingat password? <Link href="/user/login" className="text-blue-500 hover:text-blue-400 hover:underline ml-1">Masuk</Link>
+                <p className="text-sm text-slate-500 font-medium">
+                  Ingat password? <Link href="/user/login" className="text-blue-500 hover:text-blue-600 hover:underline ml-1">Masuk</Link>
                 </p>
               </div>
             </div>
@@ -126,21 +126,25 @@ export function ForgotPasswordForm({
         {currentStep === 2 && (
           <form action={resetAction} className="w-full mt-6">
             <div className="flex flex-col gap-6 px-6 h-full w-full max-w-md mx-auto relative pt-12 sm:pt-8">
-              <button 
-                type="button" 
-                onClick={() => window.location.reload()} 
-                className="absolute top-0 left-6 w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                aria-label="Go back"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <div className="flex flex-col items-center gap-2 text-center mb-6">
-                <h1 className="text-3xl font-bold tracking-tight text-white">Masukkan OTP</h1>
-                <div className="text-white/70 text-sm mt-2">
-                  <p>Kami telah mengirimkan kode OTP ke email Anda,</p>
-                  <p className="font-semibold text-blue-500 mt-1">{savedEmail}</p>
-                </div>
-              </div>
+              {verifyStep === 0 && (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={() => window.location.reload()} 
+                    className="fixed top-8 left-6 md:top-12 md:left-12 z-50 w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+                    aria-label="Go back"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <div className="flex flex-col items-center gap-2 text-center mb-6">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Masukkan OTP</h1>
+                    <div className="text-slate-500 text-sm mt-2">
+                      <p>Kami telah mengirimkan kode OTP ke email Anda,</p>
+                      <p className="font-semibold text-blue-500 mt-1">{savedEmail}</p>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {resetMessageText && !isResetSuccess ? (
                 <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500 mb-2">
@@ -159,7 +163,7 @@ export function ForgotPasswordForm({
                           <InputOTPSlot 
                             key={index} 
                             index={index} 
-                            className="rounded-xl sm:rounded-2xl border-2 border-[#1E1B4B] bg-transparent text-white text-2xl font-bold w-12 h-14 sm:w-14 sm:h-16 ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-blue-500" 
+                            className="rounded-xl sm:rounded-2xl border-2 border-slate-300 bg-transparent text-slate-900 text-2xl font-bold w-12 h-14 sm:w-14 sm:h-16 ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:border-blue-500" 
                           />
                         ))}
                       </InputOTPGroup>
@@ -168,16 +172,16 @@ export function ForgotPasswordForm({
 
                   <div className="flex items-center justify-center -mt-2">
                     {resendCountdown > 0 ? (
-                      <span className="text-sm text-white/70">
+                      <span className="text-sm text-slate-500">
                         Kami akan mengirim ulang kode dalam <span className="font-semibold text-blue-500">{resendCountdown} dtk</span>
                       </span>
                     ) : (
                       <div className="inline-block">
-                        <span className="text-sm text-white/70">
+                        <span className="text-sm text-slate-500">
                           Belum menerima kode?{" "}
                           <Button 
                             variant="link" 
-                            className="h-auto p-0 text-sm text-blue-500 hover:text-blue-400 font-semibold"
+                            className="h-auto p-0 text-sm text-blue-500 hover:text-blue-600 font-semibold"
                             type="submit"
                             formAction={otpAction}
                             disabled={otpPending}
@@ -214,11 +218,11 @@ export function ForgotPasswordForm({
                 </div>
               ) : verifyStep === 1 ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-4 animate-in fade-in zoom-in duration-300">
-                  <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
                     <CheckCircle2 className="w-10 h-10 text-green-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">OTP Berhasil Diverifikasi</h3>
-                  <p className="text-white/50 text-center text-sm px-4">
+                  <h3 className="text-xl font-bold text-slate-900">OTP Berhasil Diverifikasi</h3>
+                  <p className="text-slate-500 text-center text-sm px-4">
                     Silakan klik tombol di bawah untuk membuat password baru Anda.
                   </p>
                   <Button
@@ -231,28 +235,32 @@ export function ForgotPasswordForm({
                 </div>
               ) : (
                 <div className="flex flex-col gap-5 animate-in slide-in-from-right-4 duration-300">
+                  <div className="flex flex-col items-center gap-2 text-center mb-2">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Password Baru</h1>
+                    <p className="text-slate-500 text-sm mt-1">Silakan masukkan password baru untuk akun Anda</p>
+                  </div>
                   <input type="hidden" name="otp" value={otpValue} />
                   <div className="space-y-2">
-                    <label htmlFor="newPassword" className="text-sm font-medium text-white/90">Password Baru</label>
+                    <label htmlFor="newPassword" className="text-sm font-medium text-slate-700">Password Baru</label>
                     <PasswordInput
                       id="newPassword"
                       name="newPassword"
                       placeholder="Minimal 8 karakter"
                       autoComplete="new-password"
                       required
-                      className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-white/50 hover:[&_button]:text-white"
+                      className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-slate-500 hover:[&_button]:text-slate-900"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="confirmPassword" className="text-sm font-medium text-white/90">Konfirmasi Password Baru</label>
+                    <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">Konfirmasi Password Baru</label>
                     <PasswordInput
                       id="confirmPassword"
                       name="confirmPassword"
                       placeholder="Ulangi password baru"
                       autoComplete="new-password"
                       required
-                      className="w-full rounded-2xl border-white/10 bg-white/5 py-6 px-4 text-white placeholder:text-white/30 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-white/50 hover:[&_button]:text-white"
+                      className="w-full rounded-2xl border-slate-200 bg-slate-50 py-6 px-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-blue-500 [&_button]:text-slate-500 hover:[&_button]:text-slate-900"
                     />
                   </div>
                   <Button 

@@ -127,6 +127,13 @@ export async function logoutAction() {
   redirect("/user/login")
 }
 
+export async function adminLogoutAction() {
+  const cookieStore = await cookies()
+
+  cookieStore.delete(SESSION_COOKIE)
+  redirect("/admin/login")
+}
+
 export async function requestOtpAction(_state: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") || "").trim().toLowerCase()
 
