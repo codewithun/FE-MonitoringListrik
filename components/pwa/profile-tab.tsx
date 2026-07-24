@@ -1,6 +1,6 @@
 import * as React from "react"
 import { toast } from "sonner"
-import { ChevronLeft, ChevronRight, Edit2, Home, KeyRound, LogOut, Mail, Phone, Plus, User as UserIcon, MapPin, FileText } from "lucide-react"
+import { ChevronLeft, ChevronRight, Edit2, Home, KeyRound, LogOut, Mail, Phone, Plus, User as UserIcon, MapPin, FileText, BellRing } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -101,6 +101,60 @@ export function ProfileTab({
       )
     } finally {
       setIsBusy(false)
+    }
+  }
+
+  async function handleSubscribePush() {
+    try {
+      setIsBusy(true);
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        toast.error("Browser tidak mendukung push notification.");
+        return;
+      }
+      
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast.error("Izin notifikasi ditolak.");
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Get VAPID key
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        toast.error("VAPID Key tidak ditemukan.");
+        return;
+      }
+
+      // Convert VAPID key to Uint8Array
+      const padding = '='.repeat((4 - vapidKey.length % 4) % 4);
+      const base64 = (vapidKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray
+      });
+
+      await apiRequest('/api/notifications/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: user.id,
+          subscription
+        })
+      });
+
+      toast.success("Notifikasi sistem berhasil diaktifkan!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal mengaktifkan notifikasi sistem.");
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -424,6 +478,19 @@ export function ProfileTab({
               <div className="flex items-center gap-3">
                 <UserIcon className="h-5 w-5 text-primary" />
                 <span className="text-sm font-medium">Ubah Data Akun</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
+            </button>
+            <div className="h-[1px] bg-border" />
+            <button
+              type="button"
+              onClick={handleSubscribePush}
+              disabled={isBusy}
+              className="flex w-full items-center justify-between px-4 py-4 hover:bg-muted/50 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-3">
+                <BellRing className="h-5 w-5 text-blue-500" />
+                <span className="text-sm font-medium">Aktifkan Notifikasi Sistem</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
             </button>
