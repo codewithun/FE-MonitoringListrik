@@ -503,11 +503,7 @@ export function ProfileTab({
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Pengaturan Rumah
             </h3>
-            {houses.length === 0 ? (
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs text-primary px-2" onClick={onAddHouseClick}>
-                <Plus className="mr-1 h-3 w-3" /> Tambah
-              </Button>
-            ) : null}
+
           </div>
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <button
