@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Activity, Gauge, Power, Zap, Cpu, Home } from "lucide-react"
+import { Activity, Gauge, Power, Zap, Cpu, Home, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -12,6 +12,14 @@ import {
   getString,
 } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -81,11 +89,46 @@ export default function Page() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
   const [lastSync, setLastSync] = React.useState("")
+  
+  const [devices, setDevices] = React.useState<{ id: string; name: string }[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = React.useState<string>("all")
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const [totalPages, setTotalPages] = React.useState(1)
+  const [totalItems, setTotalItems] = React.useState(0)
+  const limit = 10
 
-  const loadLatestElectricity = React.useCallback(async () => {
+  React.useEffect(() => {
+    async function fetchDevices() {
+      try {
+        const payload = await apiRequest<unknown>("/api/perangkat")
+        const arr = extractArray(payload)
+        setDevices(arr.map((d: any) => ({
+          id: d.device_id,
+          name: d.nama_perangkat || d.device_id
+        })))
+      } catch {
+        // ignore
+      }
+    }
+    void fetchDevices()
+  }, [])
+
+  const loadLatestElectricity = React.useCallback(async (page: number, deviceId: string) => {
     try {
-      const payload = await apiRequest<unknown>("/api/data-listrik/history?limit=10")
-      setElectricityRows(extractArray(payload).map(mapElectricityLog))
+      const query = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      })
+      if (deviceId !== "all") {
+        query.append("deviceId", deviceId)
+      }
+      const payload = await apiRequest<any>(`/api/data-listrik/history?${query.toString()}`)
+      setElectricityRows(extractArray(payload.data || payload).map(mapElectricityLog))
+      if (payload.pagination) {
+        // Batasi maksimal halaman hanya sampai 10 sesuai permintaan
+        setTotalPages(Math.min(payload.pagination.totalPages, 10))
+        setTotalItems(payload.pagination.total)
+      }
       setErrorMessage("")
       setLastSync(formatTime(new Date().toISOString()))
     } catch {
@@ -93,17 +136,20 @@ export default function Page() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [limit])
 
   React.useEffect(() => {
-    void Promise.resolve().then(loadLatestElectricity)
+    void Promise.resolve().then(() => loadLatestElectricity(currentPage, selectedDeviceId))
 
     const intervalId = window.setInterval(() => {
-      void loadLatestElectricity()
+      // Hanya auto-refresh jika berada di halaman pertama
+      if (currentPage === 1) {
+        void loadLatestElectricity(1, selectedDeviceId)
+      }
     }, 2000)
 
     return () => window.clearInterval(intervalId)
-  }, [loadLatestElectricity])
+  }, [loadLatestElectricity, currentPage, selectedDeviceId])
 
   React.useEffect(() => {
     tableViewportRef.current?.scrollTo({
@@ -167,20 +213,43 @@ export default function Page() {
           </Badge>
         </div>
 
-        {latestData ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
-              <Cpu className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">Perangkat:</span>
-              <span className="font-semibold text-foreground">{latestData.deviceName}</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
-              <Home className="h-4 w-4 text-blue-500" />
-              <span className="text-muted-foreground">Lokasi:</span>
-              <span className="font-semibold text-foreground">{latestData.houseName}</span>
-            </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex w-full md:w-72 items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Filter:</span>
+            <Select 
+              value={selectedDeviceId} 
+              onValueChange={(val) => {
+                setSelectedDeviceId(val)
+                setCurrentPage(1) // Reset to page 1 on filter change
+              }}
+            >
+              <SelectTrigger className="w-full bg-white dark:bg-card">
+                <SelectValue placeholder="Pilih Perangkat" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Perangkat</SelectItem>
+                {devices.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ) : null}
+
+          {latestData && selectedDeviceId !== "all" ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
+                <Cpu className="h-4 w-4 text-primary" />
+                <span className="text-muted-foreground">Perangkat:</span>
+                <span className="font-semibold text-foreground">{latestData.deviceName}</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm shadow-sm">
+                <Home className="h-4 w-4 text-blue-500" />
+                <span className="text-muted-foreground">Lokasi:</span>
+                <span className="font-semibold text-foreground">{latestData.houseName}</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {errorMessage ? (
           <Card className="border-destructive/50">
@@ -282,6 +351,43 @@ export default function Page() {
                   ) : null}
                 </TableBody>
               </Table>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+              <div className="text-sm text-muted-foreground text-center sm:text-left">
+                Menampilkan {electricityRows.length > 0 ? (currentPage - 1) * limit + 1 : 0} hingga {Math.min(currentPage * limit, totalItems)} dari {new Intl.NumberFormat('id-ID').format(totalItems)} data
+                {currentPage > 1 && (
+                  <span className="ml-2 block sm:inline text-xs text-amber-600 font-medium">
+                    (Auto-refresh mati saat melihat riwayat)
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-foreground font-medium px-2"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Previous</span>
+                </Button>
+                
+                <div className="flex items-center justify-center h-8 w-8 rounded-full border bg-slate-50/50 dark:bg-transparent text-sm font-medium">
+                  {currentPage}
+                </div>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-foreground font-medium px-2"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages || isLoading}
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
