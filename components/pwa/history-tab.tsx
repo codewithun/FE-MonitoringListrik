@@ -104,9 +104,13 @@ export function HistoryTab({ devices }: HistoryTabProps) {
         <CardContent className="p-3 space-y-3">
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm font-medium text-muted-foreground">Pilih Perangkat</Label>
-            <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
+            <Select 
+              value={selectedDeviceId} 
+              onValueChange={setSelectedDeviceId}
+              disabled={devices.length === 0}
+            >
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="Pilih perangkat" />
+                <SelectValue placeholder={devices.length === 0 ? "Belum ada perangkat" : "Pilih perangkat"} />
               </SelectTrigger>
               <SelectContent>
                 {devices.map((device) => (
@@ -114,11 +118,6 @@ export function HistoryTab({ devices }: HistoryTabProps) {
                     {device.name}
                   </SelectItem>
                 ))}
-                {devices.length === 0 && (
-                  <SelectItem value="empty" disabled>
-                    Belum ada perangkat
-                  </SelectItem>
-                )}
               </SelectContent>
             </Select>
           </div>

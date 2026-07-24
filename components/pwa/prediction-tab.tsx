@@ -19,6 +19,11 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
 
   React.useEffect(() => {
     async function loadMonthlyHistory() {
+      if (!selectedDeviceId) {
+        setHistoryData([])
+        setIsLoading(false)
+        return
+      }
       setIsLoading(true)
       try {
         const query = selectedDeviceId ? `?deviceId=${selectedDeviceId}` : ""
@@ -204,7 +209,9 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
                       <span className="text-xs text-muted-foreground">{data.energy.toFixed(2)} kWh</span>
                     </div>
                     <div className="font-bold text-sm text-right">
-                      {formatCurrency(data.energy * tariff)}
+                      {data.month === currentMonthStr && currentMonthPrediction
+                        ? formatCurrency(currentMonthPrediction.cost)
+                        : formatCurrency(data.energy * tariff)}
                       {data.month === currentMonthStr && (
                         <div className="text-[10px] text-emerald-600 font-normal mt-0.5">Berjalan</div>
                       )}
