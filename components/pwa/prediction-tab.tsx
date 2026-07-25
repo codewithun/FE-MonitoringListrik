@@ -66,33 +66,40 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
 
   // Update data terakhir grafik dengan prediksi asli jika ada
   const chartData = React.useMemo(() => {
-    const data = [...historyData]
-    if (currentMonthPrediction?.energy) {
-      // Find if we already have a history element for the current month
-      const existingIdx = data.findIndex(d => d.month === currentMonthStr)
-      if (existingIdx !== -1) {
-        // Replace it with prediction
-        data[existingIdx] = {
-          month: currentMonthStr,
-          energy: currentMonthPrediction.energy,
-          type: "prediction_current"
-        }
-      } else {
-        data.push({
-          month: currentMonthStr,
-          energy: currentMonthPrediction.energy,
-          type: "prediction_current"
-        })
+    const dataMap: Record<string, any> = {}
+
+    historyData.forEach(d => {
+      dataMap[d.month] = {
+        month: d.month,
+        energy_history: d.energy,
       }
+    })
+
+    if (currentMonthPrediction?.energy) {
+      if (!dataMap[currentMonthStr]) {
+        dataMap[currentMonthStr] = { month: currentMonthStr }
+      }
+      dataMap[currentMonthStr].energy_prediction_current = currentMonthPrediction.energy
     }
+
     if (nextMonthPrediction?.energy) {
-      data.push({
-        month: nextMonthStr,
-        energy: nextMonthPrediction.energy,
-        type: "prediction"
-      })
+      if (!dataMap[nextMonthStr]) {
+        dataMap[nextMonthStr] = { month: nextMonthStr }
+      }
+      dataMap[nextMonthStr].energy_prediction = nextMonthPrediction.energy
     }
-    return data
+
+    const result = historyData.map(d => dataMap[d.month])
+    
+    if (currentMonthPrediction?.energy && !historyData.find(d => d.month === currentMonthStr)) {
+      result.push(dataMap[currentMonthStr])
+    }
+    
+    if (nextMonthPrediction?.energy) {
+      result.push(dataMap[nextMonthStr])
+    }
+    
+    return result
   }, [historyData, currentMonthPrediction, nextMonthPrediction, currentMonthStr, nextMonthStr])
 
 
@@ -265,20 +272,9 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
                       contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
                       labelStyle={{ fontWeight: "bold", color: "#0f172a", marginBottom: "4px" }}
                     />
-                    <Bar dataKey="energy" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                      {chartData.map((entry, index) => {
-                        let fillColor = '#3b82f6'; // blue for history
-                        if (entry.type === 'prediction_current') fillColor = '#10b981'; // emerald for current month prediction
-                        if (entry.type === 'prediction') fillColor = '#f59e0b'; // amber for next month prediction
-                        return (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={fillColor}
-                            fillOpacity={entry.type !== 'history' ? 0.9 : 1}
-                          />
-                        )
-                      })}
-                    </Bar>
+                    <Bar dataKey="energy_history" name="Riwayat Asli" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="energy_prediction_current" name="Prediksi Berjalan" fill="#10b981" fillOpacity={0.9} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="energy_prediction" name="Prediksi Bulan Depan" fill="#f59e0b" fillOpacity={0.9} radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
