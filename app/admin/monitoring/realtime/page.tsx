@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Activity, Gauge, Power, Zap, Cpu, Home, ChevronLeft, ChevronRight } from "lucide-react"
+import { Activity, Gauge, Power, Zap, Cpu, Home, ChevronLeft, ChevronRight, Check, ChevronsUpDown } from "lucide-react"
 
 import { SectionShell } from "@/components/section-shell"
 import {
@@ -20,6 +20,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -95,6 +109,7 @@ export default function Page() {
   const [currentPage, setCurrentPage] = React.useState(1)
   const [totalPages, setTotalPages] = React.useState(1)
   const [totalItems, setTotalItems] = React.useState(0)
+  const [comboboxOpen, setComboboxOpen] = React.useState(false)
   const limit = 10
 
   React.useEffect(() => {
@@ -216,23 +231,66 @@ export default function Page() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex w-full md:w-72 items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Filter:</span>
-            <Select 
-              value={selectedDeviceId} 
-              onValueChange={(val) => {
-                setSelectedDeviceId(val)
-                setCurrentPage(1) // Reset to page 1 on filter change
-              }}
-            >
-              <SelectTrigger className="w-full bg-white dark:bg-card">
-                <SelectValue placeholder="Pilih Perangkat" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Perangkat</SelectItem>
-                {devices.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboboxOpen}
+                  className="w-full justify-between bg-white dark:bg-card"
+                >
+                  {selectedDeviceId === "all"
+                    ? "Semua Perangkat"
+                    : devices.find((device) => device.id === selectedDeviceId)?.name || "Pilih Perangkat..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Cari perangkat..." />
+                  <CommandList>
+                    <CommandEmpty>Perangkat tidak ditemukan.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="Semua Perangkat"
+                        onSelect={() => {
+                          setSelectedDeviceId("all")
+                          setCurrentPage(1)
+                          setComboboxOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedDeviceId === "all" ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        Semua Perangkat
+                      </CommandItem>
+                      {devices.map((device) => (
+                        <CommandItem
+                          key={device.id}
+                          value={device.name}
+                          onSelect={() => {
+                            setSelectedDeviceId(device.id)
+                            setCurrentPage(1)
+                            setComboboxOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedDeviceId === device.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {device.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {latestData && selectedDeviceId !== "all" ? (

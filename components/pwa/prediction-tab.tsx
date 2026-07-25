@@ -206,7 +206,11 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
                   <div key={i} className="flex justify-between items-center p-3 rounded-lg border bg-card text-card-foreground shadow-sm">
                     <div className="flex flex-col">
                       <span className="font-medium text-sm">{data.month}</span>
-                      <span className="text-xs text-muted-foreground">{data.energy.toFixed(2)} kWh</span>
+                      <span className="text-xs text-muted-foreground">
+                        {data.month === currentMonthStr && currentMonthPrediction
+                          ? currentMonthPrediction.energy.toFixed(2)
+                          : data.energy.toFixed(2)} kWh
+                      </span>
                     </div>
                     <div className="font-bold text-sm text-right">
                       {data.month === currentMonthStr && currentMonthPrediction

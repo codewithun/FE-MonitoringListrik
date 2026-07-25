@@ -608,7 +608,8 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       <AssistantBubble
         devices={devices}
         logs={logs}
-        prediction={predictions[0]}
+        currentMonthPrediction={predictions.find(p => p.month === (new Date().getMonth() + 1) && p.year === new Date().getFullYear())}
+        nextMonthPrediction={predictions.find(p => p.month === (new Date().getMonth() === 11 ? 1 : new Date().getMonth() + 2) && p.year === (new Date().getMonth() === 11 ? new Date().getFullYear() + 1 : new Date().getFullYear()))}
       />
     </main>
   )

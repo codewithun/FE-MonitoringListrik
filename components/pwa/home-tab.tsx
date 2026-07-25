@@ -48,6 +48,17 @@ export function HomeTab({
   onConfigDevice,
 }: HomeTabProps) {
   const [deviceSearch, setDeviceSearch] = React.useState("")
+  const [togglingId, setTogglingId] = React.useState<string | null>(null)
+
+  const handleToggle = async (device: Device, checked: boolean) => {
+    if (togglingId === device.deviceId) return
+    setTogglingId(device.deviceId)
+    try {
+      await toggleRelay(device, checked)
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   const selectedDevice = devices.find((device) => device.deviceId === selectedDeviceId)
   const latestLog = logs[0]
@@ -160,9 +171,8 @@ export function HomeTab({
                     </button>
                     <Switch
                       checked={device.relayStatus === "ON"}
-                      onCheckedChange={(checked) =>
-                        toggleRelay(device, checked)
-                      }
+                      disabled={togglingId === device.deviceId}
+                      onCheckedChange={(checked) => handleToggle(device, checked)}
                     />
                   </div>
                 </div>
