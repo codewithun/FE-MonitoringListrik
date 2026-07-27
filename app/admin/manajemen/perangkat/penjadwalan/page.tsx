@@ -15,6 +15,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 type DeviceRow = {
   id: string
@@ -71,6 +79,8 @@ export default function PenjadwalanPage() {
   const [deviceRows, setDeviceRows] = React.useState<DeviceRow[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const pageSize = 10
 
   const [scheduleOpen, setScheduleOpen] = React.useState(false)
   const [scheduleDevice, setScheduleDevice] = React.useState<DeviceRow | null>(null)
@@ -107,6 +117,14 @@ export default function PenjadwalanPage() {
       [device.deviceCode, device.name, device.houseName].join(" ").toLowerCase().includes(query)
     )
   }, [deviceRows, searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredDeviceRows.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+
+  const paginatedDeviceRows = React.useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize
+    return filteredDeviceRows.slice(startIndex, startIndex + pageSize)
+  }, [filteredDeviceRows, safeCurrentPage])
 
   function handleOpenSchedule(device: DeviceRow, forceActive?: boolean) {
     setScheduleDevice(device)
@@ -246,7 +264,10 @@ export default function PenjadwalanPage() {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value)
+                    setCurrentPage(1)
+                  }}
                   placeholder="Cari device ID, nama perangkat, atau rumah"
                   className="pl-9"
                 />
@@ -266,8 +287,8 @@ export default function PenjadwalanPage() {
                 </TableHeader>
 
                 <TableBody>
-                  {filteredDeviceRows.length > 0 ? (
-                    filteredDeviceRows.map((device) => (
+                  {paginatedDeviceRows.length > 0 ? (
+                    paginatedDeviceRows.map((device) => (
                       <TableRow key={device.id}>
                         <TableCell className="font-mono text-sm">{device.deviceCode}</TableCell>
                         <TableCell className="font-medium">{device.name}</TableCell>
@@ -319,6 +340,54 @@ export default function PenjadwalanPage() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-6 flex flex-col gap-4 border-t pt-4 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Menampilkan {paginatedDeviceRows.length} dari {filteredDeviceRows.length} data perangkat.
+              </p>
+
+              <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (safeCurrentPage > 1) setCurrentPage(safeCurrentPage - 1)
+                      }}
+                      className={safeCurrentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page} className="hidden sm:inline-block">
+                      <PaginationLink
+                        href="#"
+                        isActive={page === safeCurrentPage}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          setCurrentPage(page)
+                        }}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (safeCurrentPage < totalPages) setCurrentPage(safeCurrentPage + 1)
+                      }}
+                      className={safeCurrentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </CardContent>
         </Card>

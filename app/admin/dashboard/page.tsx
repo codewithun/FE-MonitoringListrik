@@ -252,13 +252,23 @@ export default function Page() {
   }, [devices])
 
   const logsByTime = new Map<string, Record<string, any>>()
+  const lastKnownPower: Record<string, number> = {}
+
   logs.slice()
     .sort((first, second) => getTimeValue(first.time) - getTimeValue(second.time))
     .forEach((item) => {
       const t = formatTime(item.time)
-      if (!logsByTime.has(t)) logsByTime.set(t, { time: t })
       const safeKey = item.deviceId ? item.deviceId.replace(/[^a-zA-Z0-9]/g, "_") : "power"
-      logsByTime.get(t)![safeKey] = item.power
+      
+      lastKnownPower[safeKey] = item.power
+
+      if (!logsByTime.has(t)) {
+        logsByTime.set(t, { time: t, ...lastKnownPower })
+      } else {
+        const entry = logsByTime.get(t)!
+        entry[safeKey] = item.power
+        Object.assign(entry, lastKnownPower)
+      }
     })
   const chartRows = Array.from(logsByTime.values()).slice(-30)
 
