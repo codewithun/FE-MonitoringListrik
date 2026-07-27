@@ -61,8 +61,16 @@ export function PredictionTab({ predictions, selectedDeviceId }: PredictionTabPr
   const nextMonthStr = nextMonthDate.toLocaleString('id-ID', { month: 'short' })
   const nextMonthFull = nextMonthDate.toLocaleString('id-ID', { month: 'long' })
 
-  const currentMonthPrediction = predictions.find(p => p.month === currentMonthNum && p.year === currentYear)
-  const nextMonthPrediction = predictions.find(p => p.month === nextMonthNum && p.year === nextYearNum)
+  let currentMonthPrediction = predictions.find(p => p.month === currentMonthNum && p.year === currentYear)
+  let nextMonthPrediction = predictions.find(p => p.month === nextMonthNum && p.year === nextYearNum)
+
+  // Jika perangkat yang dipilih tidak memiliki data historis (kosong atau 0),
+  // maka prediksi untuk perangkat tersebut harus dikosongkan (0) agar masuk akal.
+  const hasNoData = historyData.length === 0 || historyData.every(d => d.energy === 0);
+  if (selectedDeviceId && hasNoData) {
+    currentMonthPrediction = undefined;
+    nextMonthPrediction = undefined;
+  }
 
   // Update data terakhir grafik dengan prediksi asli jika ada
   const chartData = React.useMemo(() => {
