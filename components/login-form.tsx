@@ -72,7 +72,7 @@ export function LoginForm({
 
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center space-x-2">
-                <Checkbox id="remember" className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                <Checkbox id="remember" name="rememberMe" value="on" className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
                 <label
                   htmlFor="remember"
                   className="text-sm font-medium leading-none text-slate-600"

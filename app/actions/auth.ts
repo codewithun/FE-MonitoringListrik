@@ -60,16 +60,23 @@ async function submitAuth(path: "/api/auth/login" | "/api/auth/register", payloa
   }
 }
 
-async function setSession(user: SessionUser) {
+async function setSession(user: SessionUser, rememberMe: boolean = false) {
   const cookieStore = await cookies()
-
-  cookieStore.set(SESSION_COOKIE, encodeSessionUser(user), {
+  
+  const options: any = {
     httpOnly: false,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24,
-  })
+  }
+
+  // Jika "Tetap Masuk" dicentang, sesi bertahan 30 hari. 
+  // Jika tidak, sesi akan hilang otomatis saat browser/tab ditutup sepenuhnya (Session Cookie).
+  if (rememberMe) {
+    options.maxAge = 60 * 60 * 24 * 30
+  }
+
+  cookieStore.set(SESSION_COOKIE, encodeSessionUser(user), options)
 }
 
 
@@ -77,6 +84,7 @@ async function setSession(user: SessionUser) {
 export async function loginAction(_state: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") || "").trim().toLowerCase()
   const password = String(formData.get("password") || "")
+  const rememberMe = formData.get("rememberMe") === "on"
 
   if (!email || !password) {
     return { message: "Email dan password wajib diisi." }
@@ -88,7 +96,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
     return { message: result.message }
   }
 
-  await setSession(result.user)
+  await setSession(result.user, rememberMe)
   redirect(result.user.role === "user" ? "/user" : "/admin/dashboard")
 }
 
@@ -116,7 +124,7 @@ export async function signupAction(_state: AuthState, formData: FormData): Promi
     return { message: result.message }
   }
 
-  await setSession(result.user)
+  await setSession(result.user, true)
   redirect("/user")
 }
 
