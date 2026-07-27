@@ -285,8 +285,8 @@ export function ForgotPasswordForm({
           <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-2 animate-in zoom-in duration-500">
             <Check className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white text-center">Password Berhasil Diubah!</h2>
-          <p className="text-white/50 text-center text-sm px-4">
+          <h2 className="text-2xl font-bold text-slate-900 text-center">Password Berhasil Diubah!</h2>
+          <p className="text-slate-500 text-center text-sm px-4">
             Anda sekarang dapat menggunakan password baru Anda untuk masuk ke dalam aplikasi.
           </p>
           <div className="pt-6 w-full">
