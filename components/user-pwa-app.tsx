@@ -289,11 +289,23 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   }, [loadPrediction])
 
   React.useEffect(() => {
-    void Promise.resolve().then(loadRealtime)
-    const intervalId = window.setInterval(() => {
-      void loadRealtime()
-    }, 2500)
-    return () => window.clearInterval(intervalId)
+    let timeoutId: number
+    let isMounted = true
+
+    const poll = async () => {
+      if (!isMounted) return
+      await loadRealtime()
+      if (isMounted) {
+        timeoutId = window.setTimeout(poll, 3000)
+      }
+    }
+
+    void poll()
+
+    return () => {
+      isMounted = false
+      window.clearTimeout(timeoutId)
+    }
   }, [loadRealtime])
 
   // ================= NOTIFICATION CHECKER =================
