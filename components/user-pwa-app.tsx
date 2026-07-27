@@ -190,9 +190,8 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
 
   const loadMainData = React.useCallback(async () => {
     try {
-      const [userPayload, userListPayload, housePayload, devicePayload] =
+      const [userListPayload, housePayload, devicePayload] =
         await Promise.all([
-          apiRequest<unknown>(`/api/users/${user.id}`).catch(() => null),
           apiRequest<unknown>("/api/users").catch(() => null),
           apiRequest<unknown>("/api/rumah").catch(() => null),
           apiRequest<unknown>("/api/perangkat"),
@@ -201,13 +200,11 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       const userFromList = extractArray(userListPayload).find((item) =>
         idsMatch(getString(item, ["id", "id_pengguna", "pengguna_id"]), user.id)
       )
-      const directUserHouses = getHousesFromUserPayload(userPayload)
       const listUserHouses = getHousesFromUserPayload(userFromList)
       const ownedHouses = extractArray(housePayload)
         .filter((item) => houseBelongsToUser(item, user))
         .map(mapHouse)
       const nextHouses = [
-        ...directUserHouses,
         ...listUserHouses,
         ...ownedHouses,
       ].filter(
