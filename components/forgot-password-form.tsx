@@ -184,6 +184,7 @@ export function ForgotPasswordForm({
                           className="h-auto p-0 text-sm text-blue-500 hover:text-blue-600 font-semibold"
                           type="submit"
                           formAction={otpAction}
+                          formNoValidate
                           disabled={otpPending}
                         >
                           Kirim Ulang
@@ -274,13 +275,7 @@ export function ForgotPasswordForm({
               </div>
             )}
 
-            {verifyStep === 0 && (
-              <div className="text-center mt-6">
-                <p className="text-sm text-white/70 font-medium">
-                  Sudah punya akun? <Link href="/user/login" className="text-blue-500 hover:text-blue-400 font-semibold ml-1">Masuk</Link>
-                </p>
-              </div>
-            )}
+
           </div>
         </form>
       )}
