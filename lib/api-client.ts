@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.zxnco.my.id"
+  process.env.NEXT_PUBLIC_BACKEND_URL || ""
 
 type ApiOptions = RequestInit & {
   method?: "GET" | "POST" | "PUT" | "DELETE"
