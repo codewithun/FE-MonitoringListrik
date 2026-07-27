@@ -61,7 +61,7 @@ export function NavMain({
             defaultOpen={
               item.isActive ||
               activePath === item.url ||
-              activePath.startsWith(`${item.url}/`)
+              (item.items?.some(sub => activePath === sub.url || activePath.startsWith(`${sub.url}/`)) ?? false)
             }
           >
             <SidebarMenuItem>
@@ -69,7 +69,8 @@ export function NavMain({
                 asChild
                 tooltip={item.title}
                 isActive={
-                  activePath === item.url || activePath.startsWith(`${item.url}/`)
+                  activePath === item.url || 
+                  (item.items?.some(sub => activePath === sub.url || activePath.startsWith(`${sub.url}/`)) ?? false)
                 }
               >
                 <Link 
