@@ -45,9 +45,9 @@ export function HistoryTab({ devices }: HistoryTabProps) {
 
     setIsLoading(true)
     try {
-      // Create start and end ISO strings for the selected date
-      const start = new Date(`${selectedDate}T00:00:00`).toISOString()
-      const end = new Date(`${selectedDate}T23:59:59`).toISOString()
+      // Send local time strings so backend database compares exactly against the selected day
+      const start = `${selectedDate} 00:00:00`
+      const end = `${selectedDate} 23:59:59`
 
       const res = (await apiRequest(
         `/api/data-listrik/history?deviceId=${selectedDeviceId}&start=${start}&end=${end}&limit=500`
