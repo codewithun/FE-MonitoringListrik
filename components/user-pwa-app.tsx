@@ -325,18 +325,6 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     }
   }, [loadRealtime])
 
-  // Reset notified log untuk perangkat yang baru dipilih
-  // agar data histori lama tidak langsung memicu notifikasi saat perangkat diganti
-  React.useEffect(() => {
-    if (!selectedDeviceId) return
-    setNotifiedLog(prev => {
-      const next = { ...prev }
-      // Hapus semua lock key yang berkaitan dengan perangkat ini
-      delete next[`power_${selectedDeviceId}`]
-      delete next[`schedule_${selectedDeviceId}`]
-      return next
-    })
-  }, [selectedDeviceId])
 
 
   // ================= NOTIFICATION CHECKER =================
