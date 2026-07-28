@@ -338,35 +338,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       const lockKeyLimit = `power_${device.deviceId}`
       const lockKeySchedule = `schedule_${device.deviceId}`
 
-      // 1. Check Power Limit (Batas Daya)
-      if (device.batasDayaAktif && device.batasDaya && device.batasDaya > 0) {
-        // Find latest log for this device
-        const deviceLogs = logs.filter(l => l.deviceId === device.deviceId)
-        if (deviceLogs.length > 0) {
-          const latestLog = deviceLogs[0]
-          const latestPower = latestLog.power
-
-          // Hanya proses jika data terbaru benar-benar segar (dalam 3 menit terakhir)
-          // Ini mencegah data histori lama langsung memicu notifikasi saat perangkat diganti
-          const logTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : 0
-          const isDataFresh = logTime > 0 && (nowMs - logTime) < 3 * 60 * 1000
-
-          if (isDataFresh && latestPower >= device.batasDaya * 0.9) {
-            // Reached 90% or more
-            const lastNotified = notifiedLog[lockKeyLimit] || 0
-            const tenMinutes = 10 * 60 * 1000
-            
-            if (nowMs - lastNotified > tenMinutes) {
-              addNotification(
-                "Peringatan Batas Daya!",
-                `Perangkat ${device.name} telah mencapai ${latestPower}W (Batas: ${device.batasDaya}W).`,
-                "power_limit"
-              )
-              setNotifiedLog(prev => ({ ...prev, [lockKeyLimit]: nowMs }))
-            }
-          }
-        }
-      }
+      // 1. (DIHAPUS: Pengecekan Batas Daya in-app dihapus karena sudah di-handle oleh Push Notification Server)
 
       // 2. Check Schedule (Penjadwalan)
       if (device.jadwalAktif && device.jadwalTanggal && device.jadwalWaktu) {
