@@ -46,6 +46,7 @@ export type ElectricityLog = {
   id: string
   deviceId: string
   time: string
+  timestamp: string  // Raw ISO timestamp for freshness checks
   voltage: number
   current: number
   power: number
@@ -204,6 +205,7 @@ export function mapElectricityLog(item: unknown, index: number): ElectricityLog 
     id: getString(item, ["id"], `${rawTime}-${index}`),
     deviceId: getString(item, ["deviceId", "device_id"], "-"),
     time: formatTime(rawTime),
+    timestamp: rawTime,  // Keep raw timestamp for freshness checks
     voltage: getNumber(item, ["voltage", "tegangan"], 0),
     current: getNumber(item, ["current", "arus"], 0),
     power: getNumber(item, ["power", "daya"], 0),

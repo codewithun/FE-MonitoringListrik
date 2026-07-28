@@ -87,7 +87,15 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
 
   const [isNotificationOpen, setIsNotificationOpen] = React.useState(false)
   const [notifications, setNotifications] = React.useState<NotificationItem[]>([])
-  const [notifiedLog, setNotifiedLog] = React.useState<Record<string, number>>({}) // To prevent spam
+  const [notifiedLog, setNotifiedLog] = React.useState<Record<string, number>>(() => {
+    // Load dari localStorage agar kunci 10 menit tidak hilang saat refresh
+    try {
+      const stored = localStorage.getItem(`notified_log_${user.id}`)
+      return stored ? JSON.parse(stored) : {}
+    } catch {
+      return {}
+    }
+  })
 
   React.useEffect(() => {
     // Load from local storage on mount
@@ -100,6 +108,15 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       // ignore
     }
   }, [user.id])
+
+  // Simpan notifiedLog ke localStorage setiap kali berubah
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(`notified_log_${user.id}`, JSON.stringify(notifiedLog))
+    } catch {
+      // ignore
+    }
+  }, [notifiedLog, user.id])
 
   React.useEffect(() => {
     // Save to local storage when changed
@@ -308,6 +325,20 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
     }
   }, [loadRealtime])
 
+  // Reset notified log untuk perangkat yang baru dipilih
+  // agar data histori lama tidak langsung memicu notifikasi saat perangkat diganti
+  React.useEffect(() => {
+    if (!selectedDeviceId) return
+    setNotifiedLog(prev => {
+      const next = { ...prev }
+      // Hapus semua lock key yang berkaitan dengan perangkat ini
+      delete next[`power_${selectedDeviceId}`]
+      delete next[`schedule_${selectedDeviceId}`]
+      return next
+    })
+  }, [selectedDeviceId])
+
+
   // ================= NOTIFICATION CHECKER =================
   React.useEffect(() => {
     if (devices.length === 0) return
@@ -324,8 +355,15 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         // Find latest log for this device
         const deviceLogs = logs.filter(l => l.deviceId === device.deviceId)
         if (deviceLogs.length > 0) {
-          const latestPower = deviceLogs[0].power
-          if (latestPower >= device.batasDaya * 0.9) {
+          const latestLog = deviceLogs[0]
+          const latestPower = latestLog.power
+
+          // Hanya proses jika data terbaru benar-benar segar (dalam 3 menit terakhir)
+          // Ini mencegah data histori lama langsung memicu notifikasi saat perangkat diganti
+          const logTime = latestLog.timestamp ? new Date(latestLog.timestamp).getTime() : 0
+          const isDataFresh = logTime > 0 && (nowMs - logTime) < 3 * 60 * 1000
+
+          if (isDataFresh && latestPower >= device.batasDaya * 0.9) {
             // Reached 90% or more
             const lastNotified = notifiedLog[lockKeyLimit] || 0
             const tenMinutes = 10 * 60 * 1000
