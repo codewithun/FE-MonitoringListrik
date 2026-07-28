@@ -164,7 +164,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
   React.useEffect(() => {
     const cached = window.localStorage.getItem(`avatar_${user.id}`)
     if (cached) setAvatar(cached)
-    
+
     apiRequest("/api/users").then(payload => {
       const users = extractArray(payload) as Record<string, any>[]
       const me = users.find(u => u.id === user.id)
@@ -172,7 +172,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
         setAvatar(me.avatar)
         window.localStorage.setItem(`avatar_${user.id}`, me.avatar)
       }
-    }).catch(() => {})
+    }).catch(() => { })
   }, [user.id])
 
   React.useEffect(() => {
@@ -333,7 +333,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
 
     const now = new Date()
     const nowMs = now.getTime()
-    
+
     devices.forEach((device) => {
       const lockKeyLimit = `power_${device.deviceId}`
       const lockKeySchedule = `schedule_${device.deviceId}`
@@ -351,7 +351,7 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
             if (nowMs - lastNotified > 10 * 60 * 1000) {
               const isOver = latestPower >= limitWatt
               addNotification(
-                isOver ? "⛔ Batas Daya Terlampaui!" : "⚠️ Peringatan Batas Daya!",
+                isOver ? "Batas Daya Terlampaui!" : "Peringatan Batas Daya!",
                 isOver
                   ? `${device.name} menggunakan ${latestPower}W — melebihi batas ${limitWatt}W. Relay otomatis dimatikan.`
                   : `${device.name} menggunakan ${latestPower}W — mendekati batas ${limitWatt}W (${Math.round((latestPower / limitWatt) * 100)}%).`,
@@ -589,11 +589,10 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
                 type="button"
                 aria-pressed={active}
                 onClick={() => switchTab(item.key)}
-                className={`relative flex h-14 flex-col items-center justify-center text-[10px] transition-all duration-200 ${
-                  active
+                className={`relative flex h-14 flex-col items-center justify-center text-[10px] transition-all duration-200 ${active
                     ? "text-[#2563eb] font-semibold"
                     : "text-slate-400 bg-transparent hover:text-slate-600 dark:hover:text-slate-300"
-                }`}
+                  }`}
               >
                 <Icon className={`mb-1 ${active ? "size-6 stroke-[2.5]" : "size-5 stroke-2"}`} />
                 <span>{item.label}</span>
