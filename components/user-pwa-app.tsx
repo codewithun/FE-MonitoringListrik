@@ -338,7 +338,30 @@ export function UserPwaApp({ user }: { user: SessionUser }) {
       const lockKeyLimit = `power_${device.deviceId}`
       const lockKeySchedule = `schedule_${device.deviceId}`
 
-      // 1. (DIHAPUS: Pengecekan Batas Daya in-app dihapus karena sudah di-handle oleh Push Notification Server)
+      // 1. Cek Batas Daya: baca daya terbaru dari logs untuk perangkat ini
+      if (device.batasDayaAktif && device.batasDaya && device.batasDaya > 0) {
+        const latestLog = logs.find((l) => l.deviceId === device.deviceId)
+        if (latestLog) {
+          const latestPower = latestLog.power
+          const limitWatt = device.batasDaya
+
+          if (latestPower >= limitWatt * 0.9) {
+            const lastNotified = notifiedLog[lockKeyLimit] || 0
+            // Anti-spam: hanya kirim 1x per 10 menit per perangkat
+            if (nowMs - lastNotified > 10 * 60 * 1000) {
+              const isOver = latestPower >= limitWatt
+              addNotification(
+                isOver ? "⛔ Batas Daya Terlampaui!" : "⚠️ Peringatan Batas Daya!",
+                isOver
+                  ? `${device.name} menggunakan ${latestPower}W — melebihi batas ${limitWatt}W. Relay otomatis dimatikan.`
+                  : `${device.name} menggunakan ${latestPower}W — mendekati batas ${limitWatt}W (${Math.round((latestPower / limitWatt) * 100)}%).`,
+                "power_limit"
+              )
+              setNotifiedLog((prev) => ({ ...prev, [lockKeyLimit]: nowMs }))
+            }
+          }
+        }
+      }
 
       // 2. Check Schedule (Penjadwalan)
       if (device.jadwalAktif && device.jadwalTanggal && device.jadwalWaktu) {
