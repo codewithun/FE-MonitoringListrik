@@ -61,7 +61,22 @@ export function HomeTab({
   }
 
   const selectedDevice = devices.find((device) => device.deviceId === selectedDeviceId)
-  const latestLog = logs[0]
+  const isRelayOff = selectedDevice?.relayStatus === "OFF"
+
+  const displayLogs = React.useMemo(() => {
+    if (!isRelayOff || logs.length === 0) return logs;
+    const newLogs = [...logs];
+    newLogs[0] = {
+      ...newLogs[0],
+      voltage: 0,
+      current: 0,
+      power: 0,
+      powerFactor: 0,
+    };
+    return newLogs;
+  }, [logs, isRelayOff]);
+
+  const latestLog = displayLogs[0]
 
   const filteredDevices = React.useMemo(() => {
     const query = deviceSearch.trim().toLowerCase()
@@ -237,7 +252,7 @@ export function HomeTab({
           >
             <AreaChart
               accessibilityLayer
-              data={logs.slice().reverse()}
+              data={displayLogs.slice().reverse()}
               margin={{ left: 12, right: 12 }}
             >
               <CartesianGrid vertical={false} />
@@ -271,7 +286,7 @@ export function HomeTab({
           <CardTitle className="text-base">Riwayat Terbaru</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {logs.slice(0, 3).map((log) => (
+          {displayLogs.slice(0, 3).map((log) => (
             <div
               key={log.id}
               className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -285,7 +300,7 @@ export function HomeTab({
               <p className="font-semibold">{log.power} W</p>
             </div>
           ))}
-          {logs.length === 0 ? (
+          {displayLogs.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               Belum ada data listrik terbaru.
             </p>
