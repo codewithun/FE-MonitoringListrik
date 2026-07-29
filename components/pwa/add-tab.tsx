@@ -84,13 +84,16 @@ export function AddTab({
   function tickScan() {
     const video = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA) {
+    if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
       rafRef.current = requestAnimationFrame(tickScan)
       return
     }
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true })
-    if (!ctx) return
+    if (!ctx) {
+      rafRef.current = requestAnimationFrame(tickScan)
+      return
+    }
 
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
@@ -98,7 +101,7 @@ export function AddTab({
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert",
+      inversionAttempts: "attemptBoth",
     })
 
     if (code?.data) {
@@ -152,7 +155,18 @@ export function AddTab({
 
     streamRef.current = stream
     video.srcObject = stream
-    video.setAttribute("playsinline", "true")
+
+    // Wait for video metadata to load before starting the scan loop
+    await new Promise<void>((resolve) => {
+      const onReady = () => {
+        video.removeEventListener("loadedmetadata", onReady)
+        video.removeEventListener("playing", onReady)
+        resolve()
+      }
+      video.addEventListener("loadedmetadata", onReady)
+      video.addEventListener("playing", onReady)
+    })
+
     await video.play().catch(() => {})
 
     rafRef.current = requestAnimationFrame(tickScan)
@@ -450,6 +464,7 @@ export function AddTab({
               ref={videoRef}
               className="aspect-video w-full object-cover"
               muted
+              autoPlay
               playsInline
             />
             {/* Hidden canvas used by jsQR to capture frames */}
