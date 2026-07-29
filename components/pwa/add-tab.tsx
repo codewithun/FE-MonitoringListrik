@@ -1,8 +1,5 @@
 import * as React from "react"
-import {
-  BrowserMultiFormatReader,
-  type IScannerControls,
-} from "@zxing/browser"
+import jsQR from "jsqr"
 import { Camera, Home, Plus, Upload, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -37,8 +34,10 @@ export function AddTab({
   initialMode = "device",
 }: AddTabProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null)
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const streamRef = React.useRef<MediaStream | null>(null)
+  const rafRef = React.useRef<number | null>(null)
   const barcodeImageInputRef = React.useRef<HTMLInputElement>(null)
-  const scanControlsRef = React.useRef<IScannerControls | null>(null)
 
   const [activeMode, setActiveMode] = React.useState<AddMode>(initialMode)
   const [isBusy, setIsBusy] = React.useState(false)
@@ -66,12 +65,51 @@ export function AddTab({
   }, [])
 
   function stopBarcodeScan() {
-    scanControlsRef.current?.stop()
-    scanControlsRef.current = null
+    // Cancel animation frame loop
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    // Stop all camera tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
     setIsScanning(false)
+  }
+
+  function tickScan() {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA) {
+      rafRef.current = requestAnimationFrame(tickScan)
+      return
+    }
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })
+    if (!ctx) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "dontInvert",
+    })
+
+    if (code?.data) {
+      const rawValue = code.data.trim()
+      setDeviceCode(rawValue)
+      setMessage(`ID perangkat terbaca: ${rawValue}`)
+      stopBarcodeScan()
+      return
+    }
+
+    rafRef.current = requestAnimationFrame(tickScan)
   }
 
   async function startBarcodeScan() {
@@ -85,64 +123,74 @@ export function AddTab({
     const video = videoRef.current
     if (!video) return
 
-    try {
-      stopBarcodeScan()
-      setIsScanning(true)
+    stopBarcodeScan()
+    setIsScanning(true)
 
-      const reader = new BrowserMultiFormatReader(undefined, {
-        delayBetweenScanAttempts: 150,
-        delayBetweenScanSuccess: 250,
-      })
+    // Try multiple constraint strategies for best device compatibility
+    const constraintOptions: MediaStreamConstraints[] = [
+      { video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { video: { facingMode: "environment" } },
+      { video: true },
+    ]
 
-      scanControlsRef.current = await reader.decodeFromConstraints(
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        video,
-        (result) => {
-          const rawValue = result?.getText().trim()
-          if (!rawValue) return
-          setDeviceCode(rawValue)
-          setMessage(`ID perangkat terbaca: ${rawValue}`)
-          stopBarcodeScan()
-        }
-      )
-    } catch {
-      setScanError("Tidak bisa membuka kamera. Cek izin kamera untuk PWA ini.")
-      stopBarcodeScan()
+    let stream: MediaStream | null = null
+    for (const constraints of constraintOptions) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+        break
+      } catch {
+        // try next option
+      }
     }
+
+    if (!stream) {
+      setScanError("Tidak bisa membuka kamera. Cek izin kamera untuk PWA ini.")
+      setIsScanning(false)
+      return
+    }
+
+    streamRef.current = stream
+    video.srcObject = stream
+    video.setAttribute("playsinline", "true")
+    await video.play().catch(() => {})
+
+    rafRef.current = requestAnimationFrame(tickScan)
   }
 
   async function scanBarcodeImage(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const imageUrl = window.URL.createObjectURL(file)
+    setScanError("")
 
     try {
-      setScanError("")
-      const reader = new BrowserMultiFormatReader()
-      const result = await reader.decodeFromImageUrl(imageUrl)
-      const rawValue = result.getText().trim()
+      const bitmap = await createImageBitmap(file)
+      const canvas = document.createElement("canvas")
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("Canvas tidak tersedia")
+      ctx.drawImage(bitmap, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth",
+      })
 
-      if (!rawValue) {
-        setScanError("Barcode tidak terbaca dari foto. Coba foto yang lebih jelas.")
+      if (!code?.data) {
+        setScanError("QR code tidak terbaca dari foto. Coba foto yang lebih jelas.")
         return
       }
 
+      const rawValue = code.data.trim()
       setDeviceCode(rawValue)
       setMessage(`ID perangkat terbaca: ${rawValue}`)
     } catch {
-      setScanError("Barcode tidak terbaca dari foto. Coba foto yang lebih jelas atau ketik ID alat.")
+      setScanError("QR code tidak terbaca dari foto. Coba foto yang lebih jelas atau ketik ID alat.")
     } finally {
-      window.URL.revokeObjectURL(imageUrl)
       event.target.value = ""
     }
+
   }
 
   async function addHouse(event: React.FormEvent<HTMLFormElement>) {
@@ -400,10 +448,12 @@ export function AddTab({
           >
             <video
               ref={videoRef}
-              className="aspect-video w-full scale-x-100 object-cover"
+              className="aspect-video w-full object-cover"
               muted
               playsInline
             />
+            {/* Hidden canvas used by jsQR to capture frames */}
+            <canvas ref={canvasRef} className="hidden" />
           </div>
           {scanError ? (
             <p className="text-sm text-destructive">{scanError}</p>
