@@ -85,6 +85,7 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
   const email = String(formData.get("email") || "").trim().toLowerCase()
   const password = String(formData.get("password") || "")
   const rememberMe = formData.get("rememberMe") === "on"
+  const expectedRole = formData.get("expectedRole") as string
 
   if (!email || !password) {
     return { message: "Email dan password wajib diisi." }
@@ -94,6 +95,10 @@ export async function loginAction(_state: AuthState, formData: FormData): Promis
 
   if (!result.user) {
     return { message: result.message }
+  }
+
+  if (expectedRole && result.user.role !== expectedRole) {
+    return { message: `Akun ini tidak memiliki akses ke portal ${expectedRole === 'admin' ? 'Admin' : 'User'}.` }
   }
 
   await setSession(result.user, rememberMe)

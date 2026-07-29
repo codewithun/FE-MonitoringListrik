@@ -27,6 +27,7 @@ export function LoginForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <form action={action}>
+        <input type="hidden" name="expectedRole" value={role} />
         {role === 'user' ? (
           <div className="flex flex-col gap-6 px-6 py-8 h-full w-full max-w-md mx-auto">
             {/* Custom PWA Header */}
