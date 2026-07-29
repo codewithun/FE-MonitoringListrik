@@ -68,7 +68,6 @@ export function HomeTab({
     const newLogs = [...logs];
     newLogs[0] = {
       ...newLogs[0],
-      voltage: 0,
       current: 0,
       power: 0,
       powerFactor: 0,
