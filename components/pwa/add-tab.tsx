@@ -1,6 +1,6 @@
 import * as React from "react"
 import jsQR from "jsqr"
-import { Camera, Home, Plus, Upload, Zap } from "lucide-react"
+import { Camera, Home, Plus, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +38,6 @@ export function AddTab({
   const streamRef = React.useRef<MediaStream | null>(null)
   const rafRef = React.useRef<number | null>(null)
   const barcodeDetectorRef = React.useRef<unknown>(null)
-  const barcodeImageInputRef = React.useRef<HTMLInputElement>(null)
 
   const [activeMode, setActiveMode] = React.useState<AddMode>(initialMode)
   const [isBusy, setIsBusy] = React.useState(false)
@@ -206,59 +205,6 @@ export function AddTab({
     await video.play().catch(() => {})
 
     rafRef.current = requestAnimationFrame(tickScan)
-  }
-
-  async function scanBarcodeImage(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    setScanError("")
-
-    try {
-      const bitmap = await createImageBitmap(file)
-
-      // Coba BarcodeDetector API dulu (native, lebih akurat dari foto)
-      if ("BarcodeDetector" in window) {
-        try {
-          // @ts-expect-error BarcodeDetector not in TS lib yet
-          const detector = new window.BarcodeDetector({ formats: ["qr_code"] })
-          const barcodes = await detector.detect(bitmap) as Array<{ rawValue: string }>
-          if (barcodes.length > 0 && barcodes[0].rawValue) {
-            const rawValue = String(barcodes[0].rawValue).trim()
-            setDeviceCode(rawValue)
-            setMessage(`ID perangkat terbaca: ${rawValue}`)
-            return
-          }
-        } catch {
-          // BarcodeDetector gagal, lanjut ke jsQR
-        }
-      }
-
-      // Fallback: jsQR via canvas
-      const canvas = document.createElement("canvas")
-      canvas.width = bitmap.width
-      canvas.height = bitmap.height
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("Canvas tidak tersedia")
-      ctx.drawImage(bitmap, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "attemptBoth",
-      })
-
-      if (!code?.data) {
-        setScanError("QR code tidak terbaca dari foto. Pastikan foto cukup terang dan QR code terlihat jelas.")
-        return
-      }
-
-      const rawValue = code.data.trim()
-      setDeviceCode(rawValue)
-      setMessage(`ID perangkat terbaca: ${rawValue}`)
-    } catch {
-      setScanError("QR code tidak terbaca dari foto. Coba foto ulang dengan pencahayaan lebih baik atau ketik ID alat.")
-    } finally {
-      event.target.value = ""
-    }
   }
 
   async function addHouse(event: React.FormEvent<HTMLFormElement>) {
@@ -475,23 +421,6 @@ export function AddTab({
                 <Camera className="h-4 w-4" />
               </Button>
             </div>
-            <input
-              ref={barcodeImageInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={scanBarcodeImage}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => barcodeImageInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Scan dari Foto
-            </Button>
           </div>
           <div className="space-y-2">
             <Label>Nama Perangkat</Label>
