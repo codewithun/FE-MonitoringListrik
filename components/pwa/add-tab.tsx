@@ -37,6 +37,7 @@ export function AddTab({
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const streamRef = React.useRef<MediaStream | null>(null)
   const rafRef = React.useRef<number | null>(null)
+  const barcodeDetectorRef = React.useRef<unknown>(null)
   const barcodeImageInputRef = React.useRef<HTMLInputElement>(null)
 
   const [activeMode, setActiveMode] = React.useState<AddMode>(initialMode)
@@ -84,11 +85,34 @@ export function AddTab({
   function tickScan() {
     const video = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
+    if (!video || video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
       rafRef.current = requestAnimationFrame(tickScan)
       return
     }
 
+    // Gunakan BarcodeDetector API (native, cepat, sama seperti scanner HP)
+    if (barcodeDetectorRef.current) {
+      const detector = barcodeDetectorRef.current as { detect: (v: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }
+      detector.detect(video).then((barcodes) => {
+        if (barcodes.length > 0 && barcodes[0].rawValue) {
+          const rawValue = String(barcodes[0].rawValue).trim()
+          setDeviceCode(rawValue)
+          setMessage(`ID perangkat terbaca: ${rawValue}`)
+          stopBarcodeScan()
+        } else {
+          rafRef.current = requestAnimationFrame(tickScan)
+        }
+      }).catch(() => {
+        rafRef.current = requestAnimationFrame(tickScan)
+      })
+      return
+    }
+
+    // Fallback: jsQR canvas-based scanner
+    if (!canvas) {
+      rafRef.current = requestAnimationFrame(tickScan)
+      return
+    }
     const ctx = canvas.getContext("2d", { willReadFrequently: true })
     if (!ctx) {
       rafRef.current = requestAnimationFrame(tickScan)
@@ -155,6 +179,18 @@ export function AddTab({
 
     streamRef.current = stream
     video.srcObject = stream
+
+    // Inisialisasi BarcodeDetector API jika tersedia (native, seperti scanner HP)
+    if ("BarcodeDetector" in window) {
+      try {
+        // @ts-expect-error BarcodeDetector not in TS lib yet
+        barcodeDetectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] })
+      } catch {
+        barcodeDetectorRef.current = null
+      }
+    } else {
+      barcodeDetectorRef.current = null
+    }
 
     // Wait for video metadata to load before starting the scan loop
     await new Promise<void>((resolve) => {
