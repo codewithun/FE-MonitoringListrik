@@ -216,6 +216,25 @@ export function AddTab({
 
     try {
       const bitmap = await createImageBitmap(file)
+
+      // Coba BarcodeDetector API dulu (native, lebih akurat dari foto)
+      if ("BarcodeDetector" in window) {
+        try {
+          // @ts-expect-error BarcodeDetector not in TS lib yet
+          const detector = new window.BarcodeDetector({ formats: ["qr_code"] })
+          const barcodes = await detector.detect(bitmap) as Array<{ rawValue: string }>
+          if (barcodes.length > 0 && barcodes[0].rawValue) {
+            const rawValue = String(barcodes[0].rawValue).trim()
+            setDeviceCode(rawValue)
+            setMessage(`ID perangkat terbaca: ${rawValue}`)
+            return
+          }
+        } catch {
+          // BarcodeDetector gagal, lanjut ke jsQR
+        }
+      }
+
+      // Fallback: jsQR via canvas
       const canvas = document.createElement("canvas")
       canvas.width = bitmap.width
       canvas.height = bitmap.height
@@ -228,7 +247,7 @@ export function AddTab({
       })
 
       if (!code?.data) {
-        setScanError("QR code tidak terbaca dari foto. Coba foto yang lebih jelas.")
+        setScanError("QR code tidak terbaca dari foto. Pastikan foto cukup terang dan QR code terlihat jelas.")
         return
       }
 
@@ -236,11 +255,10 @@ export function AddTab({
       setDeviceCode(rawValue)
       setMessage(`ID perangkat terbaca: ${rawValue}`)
     } catch {
-      setScanError("QR code tidak terbaca dari foto. Coba foto yang lebih jelas atau ketik ID alat.")
+      setScanError("QR code tidak terbaca dari foto. Coba foto ulang dengan pencahayaan lebih baik atau ketik ID alat.")
     } finally {
       event.target.value = ""
     }
-
   }
 
   async function addHouse(event: React.FormEvent<HTMLFormElement>) {
